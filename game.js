@@ -116,7 +116,8 @@ const slashEffect = {
   frame: 0,
   elapsed: 0,
   active: false,
-  delay: 130
+  delay: 130,
+  sheet: "assets/animations/slash_right_game_ready_sheet.png"
 };
 
 let heroAnimation = {
@@ -125,6 +126,43 @@ let heroAnimation = {
   elapsed: 0,
   lastTime: 0
 };
+
+const preloadedImages = new Map();
+
+function preloadImage(src) {
+  if (!src) return Promise.resolve();
+  const cached = preloadedImages.get(src);
+  if (cached) return cached.promise;
+  const image = new Image();
+  image.decoding = "async";
+  const promise = new Promise((resolve) => {
+    image.onload = resolve;
+    image.onerror = resolve;
+  });
+  preloadedImages.set(src, { image, promise });
+  image.src = src;
+  return promise;
+}
+
+function heroAnimationAssets(name) {
+  const anim = heroAnimations[name] || heroAnimations.idle;
+  const assets = [anim.sheet, anim.stoneSheet];
+  if (name === "attack") assets.push(slashEffect.sheet);
+  return assets;
+}
+
+function preloadCriticalImages() {
+  const sources = new Set([
+    "assets/battle_bg.png",
+    ...Object.keys(heroAnimations).flatMap(heroAnimationAssets),
+    slashEffect.sheet
+  ]);
+  sources.forEach(preloadImage);
+}
+
+function waitForHeroAnimationAssets(name) {
+  return Promise.all(heroAnimationAssets(name).map(preloadImage));
+}
 
 const thresholds = [
   {
@@ -1988,6 +2026,8 @@ function applySlashFrame() {
   const slash = qs("heroSlash");
   if (!slash) return;
   const x = slashEffect.frames <= 1 ? 0 : (slashEffect.frame / (slashEffect.frames - 1)) * 100;
+  slash.style.backgroundImage = `url("${slashEffect.sheet}")`;
+  slash.style.backgroundSize = `${slashEffect.frames * 100}% 100%`;
   slash.style.backgroundPosition = `${x}% 50%`;
   slash.style.opacity = slashEffect.active && slashEffect.elapsed >= 0 ? "1" : "0";
 }
@@ -2489,6 +2529,7 @@ async function resolveCardPlay(card, options = {}) {
   if (card.id === "ritualManacle") clearRitualManacleAura();
   else restoreRitualManacleMutation(card);
   const attackCard = isAttackCard(card);
+  await waitForHeroAnimationAssets(attackCard ? "attack" : "action");
   startHeroAnimation(attackCard ? "attack" : "action");
   if (attackCard) startSlashEffect();
   await card.play();
@@ -2624,7 +2665,10 @@ async function enemyTurn() {
   const attack = action.attack || 0;
   const incoming = Math.max(0, attack - state.player.block);
   const fullBlocked = action.selfStunOnFullBlock && attack > 0 && incoming === 0;
-  if (incoming > 0) startHeroAnimation("damage");
+  if (incoming > 0) {
+    await waitForHeroAnimationAssets("damage");
+    startHeroAnimation("damage");
+  }
   if (incoming > 0) state.player.hp = clampPlayerHp(state.player.hp - incoming);
   if (incoming > 0 && (state.player.brittle || 0) > 0) {
     petri(incoming);
@@ -4831,5 +4875,6 @@ document.addEventListener("visibilitychange", () => {
 });
 
 installDebugApi();
+preloadCriticalImages();
 requestAnimationFrame(tickHeroAnimation);
 newGame();
