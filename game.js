@@ -1,4 +1,104 @@
 const qs = (id) => document.getElementById(id);
+const i18n = window.StoneGameI18n;
+const t = (source, vars) => i18n?.t(source, vars) ?? String(source ?? "");
+const localizeKind = (card) => t(card?.kind);
+const localizeLabel = (entity) => t(entity?.label);
+const localizeTitle = (entity) => t(entity?.title);
+const localizeDetail = (entity) => t(entity?.detail);
+const localizeEffect = (entity) => t(entity?.effect);
+const localizePreview = (entity) => t(entity?.preview);
+
+function localizeName(entity) {
+  const name = entity?.name ?? entity;
+  if (!name) return "";
+  const original = entity?.temporaryStonePowder?.name || entity?.ritualManacleMutation?.name;
+  if (original) return t("石化した{card}", { card: t(original) });
+  if (String(name).startsWith("石化した")) return t("石化した{card}", { card: t(String(name).slice("石化した".length)) });
+  return t(name);
+}
+
+function localizeText(entity) {
+  const text = entity?.text ?? entity;
+  if (!text) return "";
+  const suffixes = [
+    " 石化の影響でコスト+1。",
+    " 石粉の影響でこの戦闘中コスト+1。",
+    " 典礼の石枷の影響で、手札にある間コスト+1。"
+  ];
+  const suffix = suffixes.find((item) => String(text).endsWith(item));
+  if (!suffix) return t(text);
+  const base = String(text).slice(0, -suffix.length);
+  return `${t(base)} ${t(suffix.trim())}`;
+}
+
+function statDeltaText(label, value) {
+  return `${t(label)}${value >= 0 ? "+" : ""}${value}`;
+}
+const escapeHtml = (value) => String(value ?? "")
+  .replace(/&/g, "&amp;")
+  .replace(/</g, "&lt;")
+  .replace(/>/g, "&gt;")
+  .replace(/"/g, "&quot;");
+
+function localizeStaticDom() {
+  document.title = t("石像の剣士");
+  document.querySelectorAll("[data-i18n]").forEach((node) => {
+    node.textContent = t(node.dataset.i18n);
+  });
+  document.querySelectorAll("[data-i18n-title]").forEach((node) => {
+    node.title = t(node.dataset.i18nTitle);
+  });
+  document.querySelectorAll("[data-i18n-aria-label]").forEach((node) => {
+    node.setAttribute("aria-label", t(node.dataset.i18nAriaLabel));
+  });
+}
+
+function setupLanguageSelect() {
+  if (!i18n) return;
+  const options = Object.entries(i18n.locales)
+    .map(([key, locale]) => `<option value="${key}">${locale.label}</option>`)
+    .join("");
+  document.querySelectorAll("[data-language-select]").forEach((select) => {
+    select.innerHTML = options;
+    select.value = i18n.current;
+    select.addEventListener("change", () => {
+      setGameLocale(select.value);
+    });
+  });
+}
+
+function syncLanguageSelects() {
+  if (!i18n) return;
+  document.querySelectorAll("[data-language-select]").forEach((select) => {
+    select.value = i18n.current;
+  });
+}
+
+function setGameLocale(locale) {
+  if (i18n) {
+    i18n.setLocale(locale);
+    syncLanguageSelects();
+  }
+  localizeStaticDom();
+  refreshLocalizedView();
+}
+
+function refreshLocalizedView() {
+  if (!state) return;
+  if (state.phase === "openingEvent") return showOpeningEvent({ preserveChoices: true, silent: true });
+  if (state.phase === "event" && state.currentEvent) return renderEventSite(state.currentEvent, { silent: true });
+  if (state.phase === "map") return showMapPhase();
+  render();
+}
+
+function confirmNewGame() {
+  return window.confirm(t("ゲームを最初からやり直しますか？"));
+}
+
+function requestNewGame() {
+  if (!confirmNewGame()) return;
+  newGame();
+}
 
 const delay = (ms) => new Promise((resolve) => window.setTimeout(resolve, debugDelay(ms)));
 
@@ -813,7 +913,7 @@ const mapEvents = [
           const targets = state.deck.filter((card) => card.id === "defend");
           for (const card of targets) transformCard(card, "heavyKnee");
           state.drawBonus += 1;
-          return `呪われた水を飲み干し、意識は妙に冴えた。毎ターン引くカードが1枚増えた。取り込んだ石化の呪いにより、所持していた防御${targets.length}枚は重い膝に変化した。`;
+          return t("呪われた水を飲み干し、意識は妙に冴えた。毎ターン引くカードが1枚増えた。取り込んだ石化の呪いにより、所持していた防御{count}枚は重い膝に変化した。", { count: targets.length });
         }
       },
       {
@@ -849,7 +949,7 @@ const mapEvents = [
           state.player.hp = Math.max(1, state.player.hp - 5);
           if (index >= 0) {
             const [removed] = state.deck.splice(index, 1);
-            return `${removed.name}を砕けた鏡の奥へ捨てた。破片で少し傷を負った。`;
+            return t("{card}を砕けた鏡の奥へ捨てた。破片で少し傷を負った。", { card: localizeName(removed) });
           }
           state.player.maxHp += 4;
           state.player.hp = Math.min(state.player.maxHp, state.player.hp + 4);
@@ -902,7 +1002,7 @@ const mapEvents = [
           const upgraded = shuffle(candidates)[0];
           if (upgraded) upgradeCard(upgraded);
           return candidates.length
-            ? `祭壇の祝福が${upgraded.name}を鍛えた。しかし祈りに反応して周囲の石化の瘴気が濃くなる。所持カードを1枚選び、固着する姿勢に変化させる。`
+            ? t("祭壇の祝福が{card}を鍛えた。しかし祈りに反応して周囲の石化の瘴気が濃くなる。所持カードを1枚選び、固着する姿勢に変化させる。", { card: localizeName(upgraded) })
             : "祝福は鍛えるカードを見つけられなかった。しかし祈りに反応して周囲の石化の瘴気が濃くなる。所持カードを1枚選び、固着する姿勢に変化させる。";
         }
       },
@@ -933,9 +1033,9 @@ const mapEvents = [
           const upgraded = shuffle(candidates)[0];
           if (upgraded) upgradeCard(upgraded);
           const relic = gainRandomRelic();
-          const upgradeText = upgraded ? `${upgraded.name}が強化された。` : "強化できるカードはなかった。";
-          const relicText = relic ? `レリック「${relic.name}」を得た。` : "新しいレリックは残っていなかった。";
-          return `女神像の割れ目から灰色の光がこぼれた。${upgradeText} ${relicText} 代償として石化が進んだ。`;
+          const upgradeText = upgraded ? t("{card}が強化された。", { card: localizeName(upgraded) }) : t("強化できるカードはなかった。");
+          const relicText = relic ? t("レリック「{relic}」を得た。", { relic: localizeName(relic) }) : t("新しいレリックは残っていなかった。");
+          return t("女神像の割れ目から灰色の光がこぼれた。{upgrade} {relic} 代償として石化が進んだ。", { upgrade: upgradeText, relic: relicText });
         }
       },
       {
@@ -950,7 +1050,7 @@ const mapEvents = [
           if (upgraded) upgradeCard(upgraded);
           petri(-6);
           return upgraded
-            ? `剣を像の手に預けると、${upgraded.name}の刃筋が澄んだ。代わりに体から熱が少し失われた。`
+            ? t("剣を像の手に預けると、{card}の刃筋が澄んだ。代わりに体から熱が少し失われた。", { card: localizeName(upgraded) })
             : "剣を預けたが、強化できる攻撃カードはなかった。冷たい祈りだけが石化を少し削った。";
         }
       }
@@ -1013,7 +1113,7 @@ const mapEvents = [
           }
           petri(6);
           return sealed
-            ? `${sealed.name}に封蝋の祈りが刻まれ、手札に残せるようになった。指先には冷たい蝋が貼りついた。`
+            ? t("{card}に封蝋の祈りが刻まれ、手札に残せるようになった。指先には冷たい蝋が貼りついた。", { card: localizeName(sealed) })
             : "封じられるカードはなかった。蝋の冷たさだけが石化を進めた。";
         }
       },
@@ -1674,7 +1774,7 @@ function upgradeCard(card) {
           state.deck.push(card);
           state.player.maxHp = Math.max(1, state.player.maxHp - 10);
           state.player.hp = Math.min(state.player.hp, state.player.maxHp);
-          return `${card.name}を獲得した。代償として最大HPが10下がった。`;
+          return t("{card}を獲得した。代償として最大HPが10下がった。", { card: localizeName(card) });
         }
       },
       {
@@ -1685,7 +1785,10 @@ function upgradeCard(card) {
           const defend = state.deck.find((card) => card.id === "defend" && !card.upgraded);
           if (strike) upgradeCard(strike);
           if (defend) upgradeCard(defend);
-          return `${strike ? strike.name : "斬撃"}と${defend ? defend.name : "防御"}を強化した。`;
+          return t("{card1}と{card2}を強化した。", {
+            card1: strike ? localizeName(strike) : t("斬撃"),
+            card2: defend ? localizeName(defend) : t("防御")
+          });
         }
       },
       {
@@ -1705,7 +1808,7 @@ function upgradeCard(card) {
         preview: "ランダムなレリックを1つ獲得",
         apply: () => {
           const relic = gainRandomRelic();
-          return relic ? `レリック「${relic.name}」を獲得した。` : "新しいレリックは残されていなかった。";
+          return relic ? t("レリック「{relic}」を獲得した。", { relic: localizeName(relic) }) : "新しいレリックは残されていなかった。";
         }
       },
       {
@@ -2263,15 +2366,15 @@ function startFight(route = null) {
   state.energySigils = [];
   state.pendingDrawPenalty = 0;
   if (route?.type === "elite" && !route.final) addLog("強敵が行く手を塞いでいる。");
-  addLog(`${base.name}が現れた。`);
+  addLog("{enemy}が現れた。", { enemy: localizeName(base) });
   if (base.opening) {
-    addLog(`${base.name}: 「${base.opening}」`);
-    debugTimeout(() => floatText("enemy", `「${base.opening}」`, "curse"), 180);
+    addLog("{enemy}: 「{line}」", { enemy: localizeName(base), line: t(base.opening) });
+    debugTimeout(() => floatText("enemy", t("「{line}」", { line: t(base.opening) }), "curse"), 180);
   }
   applyRelics("onCombatStart");
   nextEnemyIntent();
-  showTurnStep("戦闘開始", `${base.name}が現れた。`, "enemy", 1900);
-  addStepLog("戦闘開始", base.name);
+  showTurnStep("戦闘開始", t("{enemy}が現れた。", { enemy: localizeName(base) }), "enemy", 1900);
+  addStepLog("戦闘開始", localizeName(base));
   state.suppressTurnBannerOnce = true;
   startTurn();
   queuePlayerTurnStep(2050, true);
@@ -2290,7 +2393,7 @@ function startTurn() {
   if (state.suppressTurnBannerOnce) {
     state.suppressTurnBannerOnce = false;
   } else if (!state.turnResolving && state.enemy && !state.runOver) {
-    addStepLog("プレイヤーのターン", `ターン ${state.turn}`);
+    addStepLog("プレイヤーのターン", t("ターン {turn}", { turn: state.turn }));
   }
   const energyLoss = state.pendingEnergyLoss;
   const energyGain = (state.pendingEnergyGain || 0) + consumeEnergySigils();
@@ -2301,8 +2404,8 @@ function startTurn() {
   state.pendingDrawPenalty = 0;
   state.energy = Math.max(0, state.maxEnergy - energyLoss + energyGain);
   if (energyGain) {
-    addLog(`印の力でエナジー+${energyGain}。`);
-    floatText("player", `エナジー+${energyGain}`, "good");
+    addLog("印の力でエナジー+{amount}。", { amount: energyGain });
+    floatText("player", statDeltaText("エナジー", energyGain), "good");
   }
   state.attackLocked = false;
   state.player.block = 0;
@@ -2313,7 +2416,7 @@ function startTurn() {
   state.pendingCurses = 0;
   for (const cardId of state.pendingEnemyCards) {
     const card = freshCard(cardId);
-    addCardToHand(card, "added", `${card.name}が敵の効果で手札に追加`);
+    addCardToHand(card, "added", t("{card}が敵の効果で手札に追加", { card: localizeName(card) }));
   }
   state.pendingEnemyCards = [];
   for (let i = 0; i < state.pendingBrands; i++) {
@@ -2324,9 +2427,9 @@ function startTurn() {
   draw(Math.max(0, 5 + state.drawBonus - drawPenalty - nonRetainedCards));
   if (shouldEnemyInjectCard()) {
     addCardToHand(freshCard("stoneBrand"), "added", "敵が石化の刻印を刻んだ");
-    addLog(`${state.enemy.name}が石化の刻印を手札に刻んだ。`);
-    floatText("enemy", "刻印付与", "petri");
-    floatText("player", "石化の刻印", "curse");
+    addLog("{enemy}が石化の刻印を手札に刻んだ。", { enemy: localizeName(state.enemy) });
+    floatText("enemy", t("刻印付与"), "petri");
+    floatText("player", t("石化の刻印"), "curse");
   }
   if (hasPetriDebuff("burden") && state.turn % 2 === 1) addCardToHand(freshCard("burden"), "added", "石化デバフ: 石の重みが手札に混入");
   if (hasPetriDebuff("mutate") && state.turn % 2 === 0) mutateHand();
@@ -2349,7 +2452,7 @@ function addCardToHand(card, effect, message) {
 }
 
 function addHandEvent(text, type = "added") {
-  state.handEvents.push({ text, type });
+  state.handEvents.push({ text: t(text), type });
 }
 
 function hasPetriDebuff(key) {
@@ -2368,9 +2471,9 @@ function mutateHand() {
   target.mutated = true;
   target.stoneOverlay = true;
   target.fx = "mutated";
-  addHandEvent(`${before}が石化して変質`, "mutated");
-  addLog(`手札の${target.name}が重くなった。`);
-  floatText("player", "カード変質", "petri");
+  addHandEvent(t("{card}が石化して変質", { card: t(before) }), "mutated");
+  addLog("手札の{card}が重くなった。", { card: localizeName(target) });
+  floatText("player", t("カード変質"), "petri");
 }
 
 function applyPendingHandMutations() {
@@ -2402,9 +2505,9 @@ function mutateCardTemporarily(card) {
   card.text += " 石粉の影響でこの戦闘中コスト+1。";
   card.stoneOverlay = true;
   card.fx = "mutated";
-  addHandEvent(`${before}が石粉で石化`, "mutated");
-  addLog(`石粉で${card.name}に変質した。`);
-  floatText("player", "石粉変質", "petri");
+  addHandEvent(t("{card}が石粉で石化", { card: t(before) }), "mutated");
+  addLog("石粉で{card}に変質した。", { card: localizeName(card) });
+  floatText("player", t("石粉変質"), "petri");
 }
 
 function restoreTemporaryMutations() {
@@ -2511,7 +2614,7 @@ function registerExhaust(card) {
   state.exhaustedThisTurn = (state.exhaustedThisTurn || 0) + 1;
   if ((state.player.exhaustBreathAmount || 0) > 0) {
     petri(-state.player.exhaustBreathAmount);
-    floatText("player", `呼吸-${state.player.exhaustBreathAmount}`, "good");
+    floatText("player", `${t("呼吸")}-${state.player.exhaustBreathAmount}`, "good");
   }
   return card;
 }
@@ -2519,7 +2622,7 @@ function registerExhaust(card) {
 function exhaustRandomCardFromHand(source = "効果") {
   const candidates = state.hand.filter((card) => !card.playing);
   if (!candidates.length) {
-    addLog(`${source}: 廃棄できる手札がなかった。`);
+    addLog("{source}: 廃棄できる手札がなかった。", { source: t(source) });
     return false;
   }
   const card = candidates[Math.floor(Math.random() * candidates.length)];
@@ -2529,8 +2632,8 @@ function exhaustRandomCardFromHand(source = "効果") {
   restoreRitualManacleMutation(exhausted);
   exhausted.fx = "vanishing";
   state.exhaust.push(registerExhaust(exhausted));
-  addHandEvent(`${exhausted.name}を廃棄した`, "vanishing");
-  addLog(`${source}で${exhausted.name}をランダムに廃棄した。`);
+  addHandEvent(t("{card}を廃棄した", { card: localizeName(exhausted) }), "vanishing");
+  addLog("{source}で{card}をランダムに廃棄した。", { source: t(source), card: localizeName(exhausted) });
   return true;
 }
 
@@ -2577,7 +2680,7 @@ async function playCard(uid) {
 async function resolveCardPlay(card, options = {}) {
   if (!card || state.petrified || state.runOver || state.enemy.hp <= 0) return false;
   if (state.attackLocked && card.kind === "攻撃") {
-    floatText("player", "動けない", "petri");
+    floatText("player", t("動けない"), "petri");
     return false;
   }
   card.playing = true;
@@ -2596,7 +2699,7 @@ async function resolveCardPlay(card, options = {}) {
   if (["strike", "lunge", "chisel", "shatter", "selectingSlash", "shardCounterattack", "rubbleFlash", "collapseChain"].includes(card.id)) sound("slash");
   else if (card.type === "petrify" || card.type === "curse") sound("petri");
   else sound("block");
-  addLog(options.free ? `${card.name}をコストなしで使用。` : `${card.name}を使用。`);
+  addLog(options.free ? "{card}をコストなしで使用。" : "{card}を使用。", { card: localizeName(card) });
   showStatDiff(before, "player");
 
   const currentIndex = state.hand.findIndex((item) => item.uid === card.uid);
@@ -2645,28 +2748,28 @@ async function endTurn() {
   if (burdenCount) {
     petri(4 * burdenCount);
     sound("petri");
-    addLog(`石の重みで石化+${4 * burdenCount}。`);
+    addLog("石の重みで石化+{amount}。", { amount: 4 * burdenCount });
   }
   if (brandCount) {
     petri(7 * brandCount);
     sound("petri");
-    addLog(`石化の刻印で石化+${7 * brandCount}。`);
+    addLog("石化の刻印で石化+{amount}。", { amount: 7 * brandCount });
   }
   if (priestSealCount) {
     petri(9 * priestSealCount);
     sound("petri");
-    addLog(`司祭の石印を残したため、石化+${9 * priestSealCount}。`);
+    addLog("司祭の石印を残したため、石化+{amount}。", { amount: 9 * priestSealCount });
   }
   if (heavyKneeCount) {
     state.pendingCurses += heavyKneeCount;
     sound("petri");
-    addLog(`重い膝を残したため、次ターン石脚の鈍りが${heavyKneeCount}枚加わる。`);
+    addLog("重い膝を残したため、次ターン石脚の鈍りが{count}枚加わる。", { count: heavyKneeCount });
   }
   if (waxTearCount) {
     petri(6 * waxTearCount);
     state.pendingHandMutations += waxTearCount;
     sound("petri");
-    addLog(`蝋涙の凝視で石化+${6 * waxTearCount}。次ターン、手札が石化する。`);
+    addLog("蝋涙の凝視で石化+{amount}。次ターン、手札が石化する。", { amount: 6 * waxTearCount });
   }
   if (burdenCount || brandCount || priestSealCount || heavyKneeCount || waxTearCount) {
     showStatDiff(before, "player");
@@ -2716,8 +2819,8 @@ async function enemyTurn() {
   await playEnemyActionAnimation(action);
   if (action.stunned) {
     sound("block");
-    addLog(`${state.enemy.name}は体勢を崩して動けない。`);
-    floatText("enemy", "スタン", "curse");
+    addLog("{enemy}は体勢を崩して動けない。", { enemy: localizeName(state.enemy) });
+    floatText("enemy", t("スタン"), "curse");
     return;
   }
   const attack = action.attack || 0;
@@ -2730,7 +2833,7 @@ async function enemyTurn() {
   if (incoming > 0) state.player.hp = clampPlayerHp(state.player.hp - incoming);
   if (incoming > 0 && (state.player.brittle || 0) > 0) {
     petri(incoming);
-    addLog(`硬化の呪いで未ブロックダメージ分、石化+${incoming}。`);
+    addLog("硬化の呪いで未ブロックダメージ分、石化+{amount}。", { amount: incoming });
   }
   if (action.petri && !fullBlocked) petri(action.petri);
   if (action.block) state.enemy.block = (state.enemy.block || 0) + action.block;
@@ -2744,7 +2847,11 @@ async function enemyTurn() {
   if (action.addDiscardCard) {
     const count = Math.max(1, action.addDiscardCardCount || 1);
     for (let i = 0; i < count; i++) state.discard.push(freshCard(action.addDiscardCard));
-    addLog(`${state.enemy.name}が捨て札に${library[action.addDiscardCard]?.name || "カード"}を${count}枚沈めた。`);
+    addLog("{enemy}が捨て札に{card}を{count}枚沈めた。", {
+      enemy: localizeName(state.enemy),
+      card: localizeName(library[action.addDiscardCard]) || t("カード"),
+      count
+    });
   }
   if (action.mutateCard) state.pendingHandMutations += action.mutateCard;
   if (action.energyLoss) state.pendingEnergyLoss += action.energyLoss;
@@ -2753,13 +2860,13 @@ async function enemyTurn() {
   if (action.ritualFollowup) state.enemy.ritualFollowup = true;
   if (fullBlocked) {
     state.enemy.stunned = Math.max(state.enemy.stunned || 0, 1);
-    addLog(`${state.enemy.name}の大振りを受け切った。次のターン、敵は体勢を崩す。`);
-    floatText("enemy", "体勢崩れ", "curse");
+    addLog("{enemy}の大振りを受け切った。次のターン、敵は体勢を崩す。", { enemy: localizeName(state.enemy) });
+    floatText("enemy", t("体勢崩れ"), "curse");
   }
   tickPlayerDebuffsAfterEnemyAction();
   if (action.brittle) state.player.brittle = Math.max(state.player.brittle || 0, action.brittle);
   sound("enemy");
-  addLog(`${state.enemy.name}: ${action.label}`);
+  addLog("{enemy}: {action}", { enemy: localizeName(state.enemy), action: localizeLabel(action) });
   showEnemyActionDiff(before, action);
 }
 
@@ -2870,11 +2977,14 @@ function addEchoStoneSigilCopy(threshold) {
     copy.ethereal = true;
     copy.fx = "added";
     state.hand.push(copy);
-    addHandEvent(`残響の石紋: ${copy.name}を手札に写した`, "added");
-    addLog(`残響の石紋が${threshold.name}に反応し、${copy.name}をコスト0・エセリアルで手札に写した。`);
+    addHandEvent(t("残響の石紋: {card}を手札に写した", { card: localizeName(copy) }), "added");
+    addLog("残響の石紋が{threshold}に反応し、{card}をコスト0・エセリアルで手札に写した。", {
+      threshold: t(threshold.name),
+      card: localizeName(copy)
+    });
   }
   sound("notice");
-  floatText("player", "石紋の残響", "good");
+  floatText("player", t("石紋の残響"), "good");
 }
 
 function block(amount) {
@@ -2898,8 +3008,8 @@ function addTemporaryEnemyStrength(amount) {
   if (!state.enemy || amount <= 0) return;
   state.enemy.str = (state.enemy.str || 0) + amount;
   state.enemy.tempStr = (state.enemy.tempStr || 0) + amount;
-  addLog(`敵がこのターン筋力+${amount}。`);
-  floatText("enemy", `筋力+${amount}`, "curse");
+  addLog("敵がこのターン筋力+{amount}。", { amount });
+  floatText("enemy", statDeltaText("筋力", amount), "curse");
 }
 
 function clearTemporaryStats() {
@@ -2919,8 +3029,8 @@ function clearTemporaryStats() {
 
 function addEnergySigil(amount, turns) {
   state.energySigils.push({ amount, turns });
-  addLog(`次刻の印: ${turns}ターンの間、ターン開始時にエナジー+${amount}。`);
-  floatText("player", `次刻+${amount}`, "good");
+  addLog("次刻の印: {turns}ターンの間、ターン開始時にエナジー+{amount}。", { turns, amount });
+  floatText("player", statDeltaText("次刻", amount), "good");
 }
 
 function consumeEnergySigils() {
@@ -2938,8 +3048,8 @@ function applyPlateBeforeEnemy() {
   const value = state.player.plate;
   state.player.block += value;
   state.player.plate = Math.max(0, state.player.plate - 1);
-  addLog(`敵の行動前にプレートで防御+${value}。プレートが1減少。`);
-  floatText("player", `プレート防御+${value}`, "block");
+  addLog("敵の行動前にプレートでブロック+{amount}。プレートが1減少。", { amount: value });
+  floatText("player", `${t("プレート")}${t("ブロック")}+${value}`, "block");
   return true;
 }
 
@@ -2960,7 +3070,7 @@ function gainRandomRelic() {
   if (!pool.length) return null;
   const relic = shuffle(pool)[0];
   state.relics.push(relic.id);
-  addLog(`レリック「${relic.name}」を得た。`);
+  addLog("レリック「{relic}」を得た。", { relic: localizeName(relic) });
   sound("notice");
   return relic;
 }
@@ -2968,7 +3078,7 @@ function gainRandomRelic() {
 function relicNode(relic) {
   const node = document.createElement("div");
   node.className = "relic-card";
-  node.innerHTML = `<span>レリック</span><strong>${relic.name}</strong><p>${relic.text}</p>`;
+  node.innerHTML = `<span>${t("レリック")}</span><strong>${localizeName(relic)}</strong><p>${localizeText(relic)}</p>`;
   return node;
 }
 
@@ -2990,14 +3100,14 @@ function triggerPetriGainPowers(gained) {
   const reactionBlock = state.player.stoneSkinReactionBlock || 0;
   if (reactionBlock > 0) {
     state.player.block += reactionBlock;
-    floatText("player", `石肌+${reactionBlock}`, "block");
+    floatText("player", statDeltaText("石肌", reactionBlock), "block");
   }
   const riposteDamage = state.player.crackRiposteDamage || 0;
   if (riposteDamage > 0 && state.enemy && state.enemy.hp > 0) {
     state.player.hp = clampPlayerHp(state.player.hp - (state.player.crackRiposte || 1));
     const dealt = fixedDamage(riposteDamage);
-    floatText("player", `反動-${state.player.crackRiposte || 1}`, "hit");
-    if (dealt > 0) floatText("enemy", `亀裂-${dealt}`, "hit");
+    floatText("player", `${t("反動")}-${state.player.crackRiposte || 1}`, "hit");
+    if (dealt > 0) floatText("enemy", `${t("亀裂")}-${dealt}`, "hit");
   }
 }
 
@@ -3010,7 +3120,7 @@ function checkThresholds(before, after) {
       addLog(threshold.text);
       queueNotice("石化進行", threshold.text, threshold.still);
       sound("notice");
-      floatText("player", `石化 ${threshold.value}`, "petri");
+      floatText("player", `${t("石化")} ${threshold.value}`, "petri");
     }
   }
 }
@@ -3034,7 +3144,7 @@ function discardOneFromHand() {
   restoreRitualManacleMutation(card);
   card.fx = "discarding";
   state.discard.push(card);
-  addHandEvent(`${card.name}を捨て札に送った`, "discarding");
+  addHandEvent(t("{card}を捨て札に送った", { card: localizeName(card) }), "discarding");
   return true;
 }
 
@@ -3068,12 +3178,12 @@ function playableAutoCandidates() {
 async function playRandomCardForFree() {
   const candidates = playableAutoCandidates();
   if (!candidates.length) {
-    floatText("player", "対象なし", "curse");
+    floatText("player", t("対象なし"), "curse");
     addLog("自動使用できるカードがなかった。");
     return false;
   }
   const card = candidates[Math.floor(Math.random() * candidates.length)];
-  floatText("player", `${card.name}`, "good");
+  floatText("player", localizeName(card), "good");
   await delay(180);
   return resolveCardPlay(card, { free: true, payCost: false });
 }
@@ -3087,19 +3197,20 @@ function discardAnyCardFromHand(options = {}) {
     restoreRitualManacleMutation(discarded);
     discarded.fx = "discarding";
     state.discard.push(discarded);
-    addHandEvent(`${discarded.name}を捨て札に送った`, "discarding");
-    addLog(`${options.source || "効果"}で${discarded.name}を捨て札に送った。`);
+    addHandEvent(t("{card}を捨て札に送った", { card: localizeName(discarded) }), "discarding");
+    addLog("{source}で{card}を捨て札に送った。", { source: t(options.source || "効果"), card: localizeName(discarded) });
     return Promise.resolve(true);
   }
   return new Promise((resolve) => {
     const overlay = document.createElement("div");
     overlay.className = "choice-overlay";
+    const source = t(options.source || "カード");
     overlay.innerHTML = `
       <div class="choice-modal">
-        <h2>捨てるカードを選択</h2>
-        <p>${options.source || "カード"}の効果で、手札からカードを1枚捨て札に送ります。</p>
+        <h2>${t("捨てるカードを選択")}</h2>
+        <p>${t("{source}の効果で、手札からカードを1枚捨て札に送ります。", { source })}</p>
         <div class="choice-cards"></div>
-        ${options.required ? "" : `<div class="modal-actions"><button type="button" class="choice-cancel">選ばない</button></div>`}
+        ${options.required ? "" : `<div class="modal-actions"><button type="button" class="choice-cancel">${t("選ばない")}</button></div>`}
       </div>
     `;
     const cardsNode = overlay.querySelector(".choice-cards");
@@ -3116,8 +3227,8 @@ function discardAnyCardFromHand(options = {}) {
           restoreRitualManacleMutation(discarded);
           discarded.fx = "discarding";
           state.discard.push(discarded);
-          addHandEvent(`${discarded.name}を捨て札に送った`, "discarding");
-          addLog(`${discarded.name}を捨て札に送った。`);
+          addHandEvent(t("{card}を捨て札に送った", { card: localizeName(discarded) }), "discarding");
+          addLog("{card}を捨て札に送った。", { card: localizeName(discarded) });
           close(true);
         } else {
           close(false);
@@ -3138,19 +3249,20 @@ function exhaustAnyCardFromHand(options = {}) {
     restoreRitualManacleMutation(exhausted);
     exhausted.fx = "vanishing";
     state.exhaust.push(registerExhaust(exhausted));
-    addHandEvent(`${exhausted.name}を廃棄した`, "vanishing");
-    addLog(`${options.source || "効果"}で${exhausted.name}を廃棄した。`);
+    addHandEvent(t("{card}を廃棄した", { card: localizeName(exhausted) }), "vanishing");
+    addLog("{source}で{card}を廃棄した。", { source: t(options.source || "効果"), card: localizeName(exhausted) });
     return Promise.resolve(true);
   }
   return new Promise((resolve) => {
     const overlay = document.createElement("div");
     overlay.className = "choice-overlay";
+    const source = t(options.source || "カード");
     overlay.innerHTML = `
       <div class="choice-modal">
-        <h2>廃棄するカードを選択</h2>
-        <p>${options.source || "カード"}の効果で、手札からカードを1枚廃棄します。</p>
+        <h2>${t("廃棄するカードを選択")}</h2>
+        <p>${t("{source}の効果で、手札からカードを1枚廃棄します。", { source })}</p>
         <div class="choice-cards"></div>
-        ${options.required ? "" : `<div class="modal-actions"><button type="button" class="choice-cancel">選ばない</button></div>`}
+        ${options.required ? "" : `<div class="modal-actions"><button type="button" class="choice-cancel">${t("選ばない")}</button></div>`}
       </div>
     `;
     const cardsNode = overlay.querySelector(".choice-cards");
@@ -3167,8 +3279,8 @@ function exhaustAnyCardFromHand(options = {}) {
           restoreRitualManacleMutation(exhausted);
           exhausted.fx = "vanishing";
           state.exhaust.push(registerExhaust(exhausted));
-          addHandEvent(`${exhausted.name}を廃棄した`, "vanishing");
-          addLog(`${exhausted.name}を廃棄した。`);
+          addHandEvent(t("{card}を廃棄した", { card: localizeName(exhausted) }), "vanishing");
+          addLog("{card}を廃棄した。", { card: localizeName(exhausted) });
           close(true);
         } else {
           close(false);
@@ -3181,9 +3293,9 @@ function exhaustAnyCardFromHand(options = {}) {
 }
 
 function winFight() {
-  addLog(`${state.enemy.name}を砕いた。`);
+  addLog("{enemy}を砕いた。", { enemy: localizeName(state.enemy) });
   sound("win");
-  floatText("enemy", "撃破", "hit");
+  floatText("enemy", t("撃破"), "hit");
   state.enemyDefeated = true;
   restoreTemporaryMutations();
   clearCombatStatuses();
@@ -3219,14 +3331,14 @@ function showRewards(gainedRelic = null, upgradedRewards = false) {
     return card;
   });
   state.rewardPicks = picks;
-  qs("modalTitle").textContent = "カード報酬";
+  qs("modalTitle").textContent = t("カード報酬");
   qs("rewardCards").className = "reward-cards";
   document.querySelector("#rewardModal .modal").classList.remove("map-modal", "rest-modal", "event-modal");
   const actions = document.querySelector("#rewardModal .modal-actions");
   actions.className = "modal-actions";
   actions.classList.remove("hidden");
   actions.innerHTML = `
-    <button id="skipRewardBtn">スキップして進む</button>
+    <button id="skipRewardBtn">${t("スキップして進む")}</button>
   `;
   qs("skipRewardBtn").addEventListener("click", () => {
     qs("rewardModal").classList.add("hidden");
@@ -3268,7 +3380,7 @@ function showRestSite(route) {
   setPhase("rest");
   const hpGain = Math.min(18, state.player.maxHp - state.player.hp);
   const petriDrop = Math.min(30, state.player.petri);
-  qs("modalTitle").textContent = route.title;
+  qs("modalTitle").textContent = localizeTitle(route);
   qs("rewardCards").className = "reward-cards rest-cards";
   qs("rewardCards").innerHTML = "";
   const scene = document.createElement("div");
@@ -3280,12 +3392,12 @@ function showRestSite(route) {
   campLayer.className = "rest-camp-layer";
   campLayer.innerHTML = `
     <div class="rest-panel">
-      <span class="rest-kicker">休憩地点</span>
-      <strong>${route.title}</strong>
-      <p>${route.detail}</p>
+      <span class="rest-kicker">${t("休憩地点")}</span>
+      <strong>${localizeTitle(route)}</strong>
+      <p>${localizeDetail(route)}</p>
       <div class="rest-effects">
         <span><b>HP</b> +${hpGain}</span>
-        <span><b>石化</b> -${petriDrop}</span>
+        <span><b>${t("石化")}</b> -${petriDrop}</span>
       </div>
     </div>
   `;
@@ -3297,8 +3409,8 @@ function showRestSite(route) {
   actions.className = "modal-actions";
   actions.classList.remove("hidden");
   actions.innerHTML = `
-    <button id="campRestBtn">休憩する: HP+${hpGain} / 石化-${petriDrop}</button>
-    <button id="campForgeBtn">鍛冶する</button>
+    <button id="campRestBtn">${t("休憩する: HP+{hp} / 石化-{petri}", { hp: hpGain, petri: petriDrop })}</button>
+    <button id="campForgeBtn">${t("鍛冶する")}</button>
   `;
   qs("campRestBtn").addEventListener("click", restAtCamp);
   qs("campForgeBtn").addEventListener("click", showForge);
@@ -3308,7 +3420,7 @@ function showRestSite(route) {
 function showForge() {
   setPhase("forge");
   const candidates = state.deck.filter((card) => !card.upgraded && !card.unplayable);
-  qs("modalTitle").textContent = "鍛冶";
+  qs("modalTitle").textContent = t("鍛冶");
   qs("rewardCards").className = "reward-cards forge-cards";
   qs("rewardCards").innerHTML = "";
   document.querySelector("#rewardModal .modal").classList.remove("map-modal", "event-modal");
@@ -3316,11 +3428,11 @@ function showForge() {
   const actions = document.querySelector("#rewardModal .modal-actions");
   actions.className = "modal-actions";
   actions.classList.remove("hidden");
-  actions.innerHTML = `<button id="forgeBackBtn">戻る</button>`;
+  actions.innerHTML = `<button id="forgeBackBtn">${t("戻る")}</button>`;
   qs("forgeBackBtn").addEventListener("click", () => showRestSite(state.currentRoute));
 
   if (!candidates.length) {
-    qs("rewardCards").innerHTML = `<div class="map-event-panel"><strong>強化できるカードがない</strong><p>すべての候補はすでに強化済みです。</p></div>`;
+    qs("rewardCards").innerHTML = `<div class="map-event-panel"><strong>${t("強化できるカードがない")}</strong><p>${t("すべての候補はすでに強化済みです。")}</p></div>`;
     return;
   }
 
@@ -3332,12 +3444,12 @@ function showForge() {
       upgradeCard(card);
       const after = displayCardCopy(card);
       sound("block");
-      addLog(`${card.name}を鍛えた。`);
+      addLog("{card}を鍛えた。", { card: localizeName(card) });
       showForgeUpgrade(before, after);
     }));
     const preview = document.createElement("div");
     preview.className = "forge-preview";
-    preview.innerHTML = `<strong>強化後</strong><span>${upgradePreview(card)}</span>`;
+    preview.innerHTML = `<strong>${t("強化後")}</strong><span>${t(upgradePreview(card))}</span>`;
     option.appendChild(preview);
     qs("rewardCards").appendChild(option);
   }
@@ -3355,7 +3467,7 @@ function staticCardNode(card) {
 }
 
 function showForgeUpgrade(before, after) {
-  qs("modalTitle").textContent = "鍛冶";
+  qs("modalTitle").textContent = t("鍛冶");
   qs("rewardCards").className = "reward-cards rest-cards";
   qs("rewardCards").innerHTML = "";
   const scene = document.createElement("div");
@@ -3372,7 +3484,7 @@ function showForgeUpgrade(before, after) {
   cardWrap.appendChild(staticCardNode(before));
   const label = document.createElement("div");
   label.className = "forge-animation-label";
-  label.textContent = "鍛冶中...";
+  label.textContent = t("鍛冶中...");
   animation.append(cardWrap, label);
   campLayer.appendChild(animation);
   scene.append(mapLayer, campLayer);
@@ -3382,7 +3494,7 @@ function showForgeUpgrade(before, after) {
   window.setTimeout(() => {
     cardWrap.classList.add("upgraded");
     cardWrap.replaceChildren(staticCardNode(after));
-    label.textContent = `${after.name} に強化された`;
+    label.textContent = t("{card} に強化された", { card: localizeName(after) });
   }, 720);
   window.setTimeout(() => {
     qs("rewardModal").classList.add("hidden");
@@ -3402,9 +3514,9 @@ function eventChoiceCardsMarkup(choice) {
       ${choice.cards.map((id) => {
         const card = library[id];
         if (!card) return "";
-        return `<span class="event-choice-card" title="${card.name}\n${card.text}">
+        return `<span class="event-choice-card" title="${escapeHtml(`${localizeName(card)}\n${localizeText(card)}`)}">
           <img src="${cardImage(card)}" alt="">
-          <b>${card.name}</b>
+          <b>${localizeName(card)}</b>
           <em>${card.cost > 8 ? "-" : card.cost}</em>
         </span>`;
       }).join("")}
@@ -3412,24 +3524,28 @@ function eventChoiceCardsMarkup(choice) {
   `;
 }
 
-  function showEventSite(route) {
-    setPhase("event");
-    const event = pickUnusedMapEvent();
-    if (!event) {
-      addLog("新しい出来事は起きなかった。待ち伏せに遭遇した。");
+function showEventSite(route) {
+  setPhase("event");
+  const event = pickUnusedMapEvent();
+  if (!event) {
+    addLog("新しい出来事は起きなかった。待ち伏せに遭遇した。");
     return startFight({ ...route, type: "combat", randomEnemy: true, title: "待ち伏せ", effect: "ランダム戦闘" });
   }
 
   state.usedEvents.add(event.id);
   state.currentEvent = event;
-  qs("modalTitle").textContent = event.title;
+  renderEventSite(event);
+}
+
+function renderEventSite(event, options = {}) {
+  qs("modalTitle").textContent = localizeTitle(event);
   qs("rewardCards").className = "reward-cards event-cards";
   qs("rewardCards").innerHTML = `
     <div class="event-scene" style="--event-still: url('${event.still}')">
       <div class="event-panel">
-        <span class="rest-kicker">イベント</span>
-        <strong>${event.title}</strong>
-        <p>${event.detail}</p>
+        <span class="rest-kicker">${t("イベント")}</span>
+        <strong>${localizeTitle(event)}</strong>
+        <p>${localizeDetail(event)}</p>
       </div>
     </div>
   `;
@@ -3446,28 +3562,30 @@ function eventChoiceCardsMarkup(choice) {
     button.type = "button";
     const disabled = choice.disabled?.() || false;
     button.disabled = disabled;
-    button.innerHTML = `<b>${choice.label}</b><span>${disabled ? choice.disabledText : choice.preview}</span>${disabled ? "" : eventChoiceCardsMarkup(choice)}`;
+    button.innerHTML = `<b>${localizeLabel(choice)}</b><span>${disabled ? t(choice.disabledText) : localizePreview(choice)}</span>${disabled ? "" : eventChoiceCardsMarkup(choice)}`;
     button.addEventListener("click", () => resolveMapEventChoice(event, choice, index));
     actions.appendChild(button);
   });
 
-  sound("notice");
+  if (!options.silent) sound("notice");
   qs("rewardModal").classList.remove("hidden");
-    render();
-  }
+  render();
+}
 
-  function showOpeningEvent() {
+  function showOpeningEvent(options = {}) {
     setPhase("openingEvent");
     state.currentEvent = openingEvent;
-    state.openingEventChoices = shuffle(openingEvent.choices).slice(0, 2);
-    qs("modalTitle").textContent = openingEvent.title;
+    if (!options.preserveChoices || !state.openingEventChoices?.length) {
+      state.openingEventChoices = shuffle(openingEvent.choices).slice(0, 2);
+    }
+    qs("modalTitle").textContent = localizeTitle(openingEvent);
     qs("rewardCards").className = "reward-cards event-cards";
     qs("rewardCards").innerHTML = `
       <div class="event-scene" style="--event-still: url('${openingEvent.still}')">
         <div class="event-panel">
-          <span class="rest-kicker">出発前</span>
-          <strong>${openingEvent.title}</strong>
-          <p>${openingEvent.detail}</p>
+          <span class="rest-kicker">${t("出発前")}</span>
+          <strong>${localizeTitle(openingEvent)}</strong>
+          <p>${localizeDetail(openingEvent)}</p>
         </div>
       </div>
     `;
@@ -3482,12 +3600,12 @@ function eventChoiceCardsMarkup(choice) {
       const button = document.createElement("button");
       button.className = "event-choice";
       button.type = "button";
-      button.innerHTML = `<b>${choice.label}</b><span>${choice.preview}</span>${eventChoiceCardsMarkup(choice)}`;
+      button.innerHTML = `<b>${localizeLabel(choice)}</b><span>${localizePreview(choice)}</span>${eventChoiceCardsMarkup(choice)}`;
       button.addEventListener("click", () => resolveOpeningEventChoice(choice, index));
       actions.appendChild(button);
     });
 
-    sound("notice");
+    if (!options.silent) sound("notice");
     qs("rewardModal").classList.remove("hidden");
     render();
   }
@@ -3497,7 +3615,7 @@ function eventChoiceCardsMarkup(choice) {
     const result = choice.apply();
     sound("block");
     showStatDiff(before, "player");
-    addLog(`${openingEvent.title}: ${choice.label}`);
+    addLog("{event}: {choice}", { event: localizeTitle(openingEvent), choice: localizeLabel(choice) });
     if (choice.requiresOpeningUpgradeSelection) {
       render();
       return showOpeningUpgradeSelection(result);
@@ -3515,16 +3633,16 @@ function eventChoiceCardsMarkup(choice) {
     qs("rewardCards").innerHTML = `
       <div class="event-scene" style="--event-still: url('${openingEvent.still}')">
         <div class="event-panel">
-          <span class="rest-kicker">結果</span>
-          <strong>${title}</strong>
-          <p>${result}</p>
-          <em>${effect}</em>
+          <span class="rest-kicker">${t("結果")}</span>
+          <strong>${t(title)}</strong>
+          <p>${t(result)}</p>
+          <em>${t(effect)}</em>
         </div>
       </div>
     `;
     const actions = document.querySelector("#rewardModal .modal-actions");
     actions.className = "modal-actions";
-    actions.innerHTML = `<button id="continueOpeningBtn">進む</button>`;
+    actions.innerHTML = `<button id="continueOpeningBtn">${t("進む")}</button>`;
     qs("continueOpeningBtn").addEventListener("click", () => {
       state.openingEventChoices = [];
       qs("rewardModal").classList.add("hidden");
@@ -3534,12 +3652,12 @@ function eventChoiceCardsMarkup(choice) {
   }
 
   function showOpeningUpgradeSelection(intro) {
-    qs("modalTitle").textContent = `${openingEvent.title}: カード選択`;
+    qs("modalTitle").textContent = `${localizeTitle(openingEvent)}: ${t("カード選択")}`;
     qs("rewardCards").className = "reward-cards forge-cards event-transform-cards";
     qs("rewardCards").innerHTML = "";
     const introPanel = document.createElement("div");
     introPanel.className = "event-transform-note";
-    introPanel.innerHTML = `<strong>強化するカードを選ぶ</strong><p>${intro}</p><em>選んだカードを強化してから出発する。</em>`;
+    introPanel.innerHTML = `<strong>${t("強化するカードを選ぶ")}</strong><p>${t(intro)}</p><em>${t("選んだカードを強化してから出発する。")}</em>`;
     qs("rewardCards").appendChild(introPanel);
     const candidates = state.deck.filter((card) => !card.upgraded && !card.unplayable);
     for (const card of candidates) {
@@ -3548,15 +3666,15 @@ function eventChoiceCardsMarkup(choice) {
       option.appendChild(cardNode(card, () => {
         const beforeName = card.name;
         upgradeCard(card);
-        const result = `${beforeName}を強化した。`;
+        const result = t("{card}を強化した。", { card: t(beforeName) });
         addLog(result);
         sound("block");
-        showOpeningEventResult("強化完了", result, `${beforeName}を強化`);
+        showOpeningEventResult("強化完了", result, t("{card}を強化", { card: t(beforeName) }));
         render();
       }, { forceEnabled: true }));
       const preview = document.createElement("div");
       preview.className = "forge-preview";
-      preview.innerHTML = `<strong>強化後</strong><span>${upgradePreview(card)}</span>`;
+      preview.innerHTML = `<strong>${t("強化後")}</strong><span>${t(upgradePreview(card))}</span>`;
       option.appendChild(preview);
       qs("rewardCards").appendChild(option);
     }
@@ -3566,22 +3684,22 @@ function eventChoiceCardsMarkup(choice) {
   }
 
   function showOpeningTransformSelection(intro) {
-    qs("modalTitle").textContent = `${openingEvent.title}: カード選択`;
+    qs("modalTitle").textContent = `${localizeTitle(openingEvent)}: ${t("カード選択")}`;
     qs("rewardCards").className = "reward-cards forge-cards event-transform-cards";
     qs("rewardCards").innerHTML = "";
     const introPanel = document.createElement("div");
     introPanel.className = "event-transform-note";
-    introPanel.innerHTML = `<strong>変化させるカードを選ぶ</strong><p>${intro}</p><em>選んだカードはランダムなカードに変化する。</em>`;
+    introPanel.innerHTML = `<strong>${t("変化させるカードを選ぶ")}</strong><p>${t(intro)}</p><em>${t("選んだカードはランダムなカードに変化する。")}</em>`;
     qs("rewardCards").appendChild(introPanel);
     for (const card of state.deck) {
       qs("rewardCards").appendChild(cardNode(card, () => {
         const beforeName = card.name;
         const nextId = shuffle(randomTransformCardIds.filter((id) => id !== card.id))[0];
         transformCard(card, nextId);
-        const result = `${beforeName}は${card.name}に変化した。`;
+        const result = t("{before}は{after}に変化した。", { before: t(beforeName), after: localizeName(card) });
         addLog(result);
         sound("petri");
-        showOpeningEventResult("変化完了", result, `${beforeName} -> ${card.name}`);
+        showOpeningEventResult("変化完了", result, `${t(beforeName)} -> ${localizeName(card)}`);
         render();
       }, { forceEnabled: true }));
     }
@@ -3595,7 +3713,7 @@ function eventChoiceCardsMarkup(choice) {
     const result = choice.apply();
   sound("block");
   showStatDiff(before, "player");
-  addLog(`${event.title}: ${choice.label}`);
+  addLog("{event}: {choice}", { event: localizeTitle(event), choice: localizeLabel(choice) });
   if (choice.requiresTransformSelection) {
     render();
     return showEventTransformSelection(event, choice, result);
@@ -3610,16 +3728,16 @@ function showEventResult(event, title, result, effect) {
   qs("rewardCards").innerHTML = `
     <div class="event-scene" style="--event-still: url('${event.still}')">
       <div class="event-panel">
-        <span class="rest-kicker">結果</span>
-        <strong>${title}</strong>
-        <p>${result}</p>
-        <em>${effect}</em>
+        <span class="rest-kicker">${t("結果")}</span>
+        <strong>${t(title)}</strong>
+        <p>${t(result)}</p>
+        <em>${t(effect)}</em>
       </div>
     </div>
   `;
   const actions = document.querySelector("#rewardModal .modal-actions");
   actions.className = "modal-actions";
-  actions.innerHTML = `<button id="continueMapBtn">進む</button>`;
+  actions.innerHTML = `<button id="continueMapBtn">${t("進む")}</button>`;
   qs("continueMapBtn").addEventListener("click", () => {
     qs("rewardModal").classList.add("hidden");
     document.querySelector("#rewardModal .modal").classList.remove("event-modal");
@@ -3628,21 +3746,21 @@ function showEventResult(event, title, result, effect) {
 }
 
 function showEventTransformSelection(event, choice, intro) {
-  qs("modalTitle").textContent = `${event.title}: カード選択`;
+  qs("modalTitle").textContent = `${localizeTitle(event)}: ${t("カード選択")}`;
   qs("rewardCards").className = "reward-cards forge-cards event-transform-cards";
   qs("rewardCards").innerHTML = "";
   const introPanel = document.createElement("div");
   introPanel.className = "event-transform-note";
-  introPanel.innerHTML = `<strong>瘴気に侵されるカードを選択</strong><p>${intro}</p><em>選んだカードは${library[choice.transformTo].name}になる。この選択はスキップできない。</em>`;
+  introPanel.innerHTML = `<strong>${t("瘴気に侵されるカードを選択")}</strong><p>${t(intro)}</p><em>${t("選んだカードは{card}になる。", { card: localizeName(library[choice.transformTo]) })}${t("この選択はスキップできない。")}</em>`;
   qs("rewardCards").appendChild(introPanel);
   for (const card of state.deck) {
     qs("rewardCards").appendChild(cardNode(card, () => {
       const beforeName = card.name;
       transformCard(card, choice.transformTo);
-      const result = `${intro} ${beforeName}は${card.name}に変化した。`;
+      const result = `${t(intro)} ${t("{before}は{after}に変化した。", { before: t(beforeName), after: localizeName(card) })}`;
       addLog(result);
       sound("petri");
-      showEventResult(event, "変化完了", result, `${choice.preview} / ${beforeName} -> ${card.name}`);
+      showEventResult(event, "変化完了", result, `${localizePreview(choice)} / ${t(beforeName)} -> ${localizeName(card)}`);
       render();
     }, { forceEnabled: true }));
   }
@@ -3659,21 +3777,21 @@ function resolveSimpleMapNode(route) {
   const gainedRelic = route.type === "treasure" ? gainRandomRelic() : null;
   sound(route.type === "treasure" ? "notice" : "block");
   showStatDiff(before, "player");
-  qs("modalTitle").textContent = route.title;
+  qs("modalTitle").textContent = localizeTitle(route);
   qs("rewardCards").className = "reward-cards rest-cards";
   qs("rewardCards").innerHTML = `
     <div class="map-event-panel">
-      <strong>${mapNodeTypes[route.type]?.label || route.title}</strong>
-      <p>${route.detail}</p>
-      <em>${route.effect}</em>
-      ${gainedRelic ? `<div class="relic-card inline"><span>レリック</span><strong>${gainedRelic.name}</strong><p>${gainedRelic.text}</p></div>` : ""}
+      <strong>${t(mapNodeTypes[route.type]?.label || route.title)}</strong>
+      <p>${localizeDetail(route)}</p>
+      <em>${localizeEffect(route)}</em>
+      ${gainedRelic ? `<div class="relic-card inline"><span>${t("レリック")}</span><strong>${localizeName(gainedRelic)}</strong><p>${localizeText(gainedRelic)}</p></div>` : ""}
     </div>
   `;
   document.querySelector("#rewardModal .modal").classList.remove("map-modal", "rest-modal", "event-modal");
   const actions = document.querySelector("#rewardModal .modal-actions");
   actions.className = "modal-actions";
   actions.classList.remove("hidden");
-  actions.innerHTML = `<button id="continueMapBtn">進む</button>`;
+  actions.innerHTML = `<button id="continueMapBtn">${t("進む")}</button>`;
   qs("continueMapBtn").addEventListener("click", () => {
     qs("rewardModal").classList.add("hidden");
     advanceAfterMapNode();
@@ -3692,7 +3810,7 @@ function showMapPhase() {
   state.hand = [];
   state.energy = 0;
   const routes = availableMapRoutes();
-  qs("modalTitle").textContent = state.floor >= 11 ? "最終深層への道" : `深層 ${state.floor} への道`;
+  qs("modalTitle").textContent = state.floor >= 11 ? t("最終深層への道") : t("深層 {floor} への道", { floor: state.floor });
   qs("rewardCards").className = "reward-cards map-cards";
   qs("rewardCards").innerHTML = "";
   qs("rewardCards").appendChild(mapTreeNode(routes));
@@ -3735,7 +3853,7 @@ function availableMapRoutes() {
   const visited = new Set(map.visited);
   const nodes = map.nodes.map((node) => ({
     ...node,
-    label: node.title,
+    label: localizeTitle(node),
     route: availableIds.has(node.id) ? node : null,
     debugRoute: debugMapSelect && availableIds.has(node.id) && !naturalIds.has(node.id),
     current: node.id === map.current,
@@ -3755,7 +3873,7 @@ function availableMapRoutes() {
   if (routes.length) {
     const callout = document.createElement("div");
     callout.className = "map-callout";
-    callout.textContent = "次のマスを選択";
+    callout.textContent = t("次のマスを選択");
     tree.appendChild(callout);
   }
 
@@ -3765,8 +3883,8 @@ function availableMapRoutes() {
       el.className = `map-tree-node ${node.type}${node.route ? " available" : ""}${node.debugRoute ? " debug-route" : ""}${node.preview ? " preview" : ""}${node.completed ? " completed" : ""}${node.current ? " current" : ""}`;
       el.style.left = `${node.x}%`;
       el.style.top = `${100 * node.y / mapViewHeight}%`;
-    el.title = node.route ? `${node.label}\n${node.route.detail}\n${node.route.effect}` : node.label;
-    el.innerHTML = `<span class="map-icon">${meta.icon}</span><strong>${node.label}</strong>${node.route ? `<em>${node.route.effect}</em>` : ""}`;
+    el.title = node.route ? `${node.label}\n${localizeDetail(node.route)}\n${localizeEffect(node.route)}` : node.label;
+    el.innerHTML = `<span class="map-icon">${meta.icon}</span><strong>${node.label}</strong>${node.route ? `<em>${localizeEffect(node.route)}</em>` : ""}`;
     if (node.route) el.addEventListener("click", () => chooseRoute(node.route));
     tree.appendChild(el);
   }
@@ -3774,7 +3892,7 @@ function availableMapRoutes() {
   const legend = document.createElement("div");
   legend.className = "map-legend";
   const debugLegend = debugFreeMapSelect ? `<span class="debug-free"><i>DBG</i>FREE MAP</span>` : "";
-  legend.innerHTML = `${debugLegend}${Object.entries(mapNodeTypes).map(([key, meta]) => `<span><i class="${key}">${meta.icon}</i>${meta.label}</span>`).join("")}`;
+  legend.innerHTML = `${debugLegend}${Object.entries(mapNodeTypes).map(([key, meta]) => `<span><i class="${key}">${meta.icon}</i>${t(meta.label)}</span>`).join("")}`;
   tree.appendChild(legend);
   return tree;
 }
@@ -3801,7 +3919,7 @@ function chooseRoute(route) {
   if (!state.runMap.visited.includes(route.id)) state.runMap.visited.push(route.id);
   state.path = [...state.runMap.visited];
   state.currentRoute = route;
-  addLog(`${route.title}を進む。${route.effect}`);
+  addLog(`${localizeTitle(route)}: ${localizeEffect(route)}`);
   qs("rewardModal").classList.add("hidden");
   qs("rewardCards").className = "reward-cards";
   document.querySelector("#rewardModal .modal").classList.remove("map-modal", "rest-modal", "event-modal");
@@ -3823,7 +3941,7 @@ function gameoverStillMarkup() {
   const petriBadge = state.runOver && state.gameoverReason === "petrified"
     ? `<div class="gameover-petri-badge">
         <img src="assets/debuff_petri_rank4.png" alt="">
-        <span>完全石化</span>
+        <span>${t("完全石化")}</span>
       </div>`
     : "";
   return `<div class="gameover-still-frame"><img class="gameover-still" src="${state.gameoverStill}" alt="">${petriBadge}</div>`;
@@ -3851,12 +3969,12 @@ function enterPetrifiedLoop() {
   if (state.enemy) state.enemy.intent = { attack: 0, petriGain: 0 };
   render();
   document.querySelector("#rewardModal .modal").classList.remove("map-modal", "rest-modal", "event-modal");
-  qs("modalTitle").textContent = "完全石化";
+  qs("modalTitle").textContent = t("完全石化");
   const actions = document.querySelector("#rewardModal .modal-actions");
   actions.classList.remove("hidden");
   actions.innerHTML = `
-    <button id="struggleBtn">動こうとする</button>
-    <button id="giveUpBtn">諦める</button>
+    <button id="struggleBtn">${t("動こうとする")}</button>
+    <button id="giveUpBtn">${t("諦める")}</button>
   `;
   qs("struggleBtn").addEventListener("click", showNextStatueText);
   qs("giveUpBtn").addEventListener("click", () => endRun(false));
@@ -3867,7 +3985,7 @@ function enterPetrifiedLoop() {
 function showNextStatueText() {
   const text = statueTexts[state.statueIndex % statueTexts.length];
   state.statueIndex++;
-  qs("rewardCards").innerHTML = `<div class="ending gameover-ending">${gameoverStillMarkup()}<p>${text}</p></div>`;
+  qs("rewardCards").innerHTML = `<div class="ending gameover-ending">${gameoverStillMarkup()}<p>${t(text)}</p></div>`;
 }
 
 function endRun(victory) {
@@ -3883,17 +4001,17 @@ function endRun(victory) {
   restoreTemporaryMutations();
   clearCombatStatuses();
   document.querySelector("#rewardModal .modal").classList.remove("map-modal", "rest-modal", "event-modal");
-  qs("modalTitle").textContent = victory ? "最深部を突破した" : "ゲームオーバー";
+  qs("modalTitle").textContent = victory ? t("最深部を突破した") : t("ゲームオーバー");
   if (victory) state.gameoverReason = null;
   if (!victory && !state.gameoverStill) {
     state.gameoverReason = state.gameoverReason || "hp";
     state.gameoverStill = selectGameoverStill("hp");
   }
-  qs("rewardCards").innerHTML = `<div class="ending ${victory ? "" : "gameover-ending"}">${victory ? "" : gameoverStillMarkup()}<p>${victory ? "石化を力に変え、呪いの司祭を砕いた。" : "あなたは抵抗をやめた。動かない身体はそのまま遺跡に残り、誰かが見つける日まで沈黙する。"}</p></div>`;
+  qs("rewardCards").innerHTML = `<div class="ending ${victory ? "" : "gameover-ending"}">${victory ? "" : gameoverStillMarkup()}<p>${victory ? t("石化を力に変え、呪いの司祭を砕いた。") : t("あなたは抵抗をやめた。動かない身体はそのまま遺跡に残り、誰かが見つける日まで沈黙する。")}</p></div>`;
   const actions = document.querySelector("#rewardModal .modal-actions");
   actions.classList.remove("hidden");
-  actions.innerHTML = `<button id="retryBtn">最初から</button>`;
-  qs("retryBtn").addEventListener("click", newGame);
+  actions.innerHTML = `<button id="retryBtn">${t("最初から")}</button>`;
+  qs("retryBtn").addEventListener("click", requestNewGame);
   qs("rewardModal").classList.remove("hidden");
   render();
 }
@@ -3915,8 +4033,8 @@ function showNextNotice() {
     return;
   }
   state.noticeOpen = true;
-  qs("noticeTitle").textContent = notice.title;
-  qs("noticeText").textContent = notice.text;
+  qs("noticeTitle").textContent = t(notice.title);
+  qs("noticeText").textContent = t(notice.text);
   const still = qs("noticeStill");
   if (still) {
     still.classList.toggle("hidden", !notice.still);
@@ -4181,8 +4299,8 @@ function showCardPreview(card, x, y) {
   panel.classList.toggle("hidden", false);
   panel.classList.toggle("invalid", !outcome.valid);
   panel.innerHTML = `
-    <strong>${attack ? "敵に放す" : "上に放す"}</strong>
-    ${outcome.lines.slice(0, 5).map((line) => `<span>${line}</span>`).join("")}
+    <strong>${attack ? t("敵に放す") : t("上に放す")}</strong>
+    ${outcome.lines.slice(0, 5).map((line) => `<span>${t(line)}</span>`).join("")}
   `;
   const left = Math.min(Math.max(x + 18, 12), window.innerWidth - 252);
   const top = Math.min(Math.max(y - 120, 12), window.innerHeight - 160);
@@ -4208,13 +4326,17 @@ function cardNode(card, onClick, options = {}) {
   node.className = `card ${card.type}${card.unplayable ? " unplayable" : ""}${energyLocked ? " energy-locked" : ""}${resolvingLocked ? " resolving-locked" : ""}${card.stoneOverlay ? " stone-overlaid" : ""}${card.fx ? ` ${card.fx}` : ""}`;
   node.disabled = resolvingLocked || (Boolean(card.unplayable) && !options.forceEnabled);
   if (card.uid) node.dataset.uid = card.uid;
-  const extraText = `${card.innate ? "<br><b>天賦。</b>" : ""}${card.retain ? "<br><b>保留。</b>" : ""}${card.ethereal ? "<br><b>エセリアル。</b>" : ""}`;
+  const extraText = [
+    card.innate ? t("天賦。") : "",
+    card.retain ? t("保留。") : "",
+    card.ethereal ? t("エセリアル。") : ""
+  ].filter(Boolean).map((text) => `<br><b>${text}</b>`).join("");
   node.innerHTML = `
     <span class="cost">${card.cost > 8 ? "-" : card.cost}</span>
-    <h3>${card.name}</h3>
+    <h3>${localizeName(card)}</h3>
     <span class="card-art"><img src="${cardImage(card)}" alt=""></span>
-    <span class="kind">${card.kind}</span>
-    <p>${card.text}${extraText}</p>
+    <span class="kind">${localizeKind(card)}</span>
+    <p>${localizeText(card)}${extraText}</p>
   `;
   if (options.playContext) setupPlayableCardDrag(node, card, onClick);
   else node.addEventListener("click", onClick);
@@ -4249,7 +4371,7 @@ function debugCardLibraryNode(card) {
 
 function showDebugCardLibrary() {
   if (!debugMapSelect) return;
-  qs("pileTitle").textContent = "デバッグ: カード追加";
+  qs("pileTitle").textContent = `${t("デバッグ")}: ${t("カード追加")}`;
   qs("pileCards").className = "pile-cards debug-card-library";
   qs("pileCards").innerHTML = "";
   for (const id of Object.keys(library)) {
@@ -4266,13 +4388,13 @@ function showPile(kind) {
       : [...state.deck];
   qs("pileCards").className = "pile-cards";
   qs("pileTitle").textContent = kind === "draw"
-    ? `山札 ${cards.length}枚`
+    ? `${t("山札")} ${cards.length}${t("枚")}`
     : kind === "discard"
-      ? `捨札 ${cards.length}枚`
-      : `所持カード ${cards.length}枚`;
+      ? `${t("捨札")} ${cards.length}${t("枚")}`
+      : `${t("所持カード")} ${cards.length}${t("枚")}`;
   qs("pileCards").innerHTML = "";
   if (!cards.length) {
-    qs("pileCards").innerHTML = `<div class="pile-empty">カードはありません</div>`;
+    qs("pileCards").innerHTML = `<div class="pile-empty">${t("カードはありません")}</div>`;
   } else {
     for (const card of cards) qs("pileCards").appendChild(pileCardNode(card));
   }
@@ -4297,11 +4419,11 @@ function showStatDiff(before, source) {
   const petriDelta = state.player.petri - before.playerPetri;
   if (enemyDamage > 0) floatText("enemy", `-${enemyDamage}`, "hit");
   if (playerDamage > 0) floatText("player", `-${playerDamage}`, "hit");
-  if (blockGain > 0) floatText("player", `防御+${blockGain}`, "block");
-  if (plateGain > 0) floatText("player", `プレート+${plateGain}`, "block");
-  if (petriDelta > 0) floatText("player", `石化+${petriDelta}`, "petri");
-  if (petriDelta < 0) floatText("player", `石化${petriDelta}`, "good");
-  if (source === "enemy" && petriDelta > 0) floatText("enemy", "石化の呪い", "petri");
+  if (blockGain > 0) floatText("player", statDeltaText("ブロック", blockGain), "block");
+  if (plateGain > 0) floatText("player", statDeltaText("プレート", plateGain), "block");
+  if (petriDelta > 0) floatText("player", statDeltaText("石化", petriDelta), "petri");
+  if (petriDelta < 0) floatText("player", statDeltaText("石化", petriDelta), "good");
+  if (source === "enemy" && petriDelta > 0) floatText("enemy", t("石化の呪い"), "petri");
 }
 
 function showEnemyActionDiff(before, action) {
@@ -4312,19 +4434,19 @@ function showEnemyActionDiff(before, action) {
     window.setTimeout(() => floatText("player", `-${playerDamage}`, "hit"), 180);
   }
   if (petriDelta > 0) {
-    window.setTimeout(() => floatText("player", `石化+${petriDelta}`, "petri"), playerDamage > 0 ? 920 : 260);
+    window.setTimeout(() => floatText("player", statDeltaText("石化", petriDelta), "petri"), playerDamage > 0 ? 920 : 260);
   }
   if (enemyBlock > 0) {
-    window.setTimeout(() => floatText("enemy", `防御+${enemyBlock}`, "block"), 340);
+    window.setTimeout(() => floatText("enemy", statDeltaText("ブロック", enemyBlock), "block"), 340);
   }
   if (action.addCard || action.addDiscardCard || action.brands || action.mutateCard) {
-    window.setTimeout(() => floatText("player", "次ターン妨害", "curse"), 1180);
+    window.setTimeout(() => floatText("player", t("次ターン妨害"), "curse"), 1180);
   }
   if (action.brittle) {
-    window.setTimeout(() => floatText("player", "被弾で石化", "petri"), 1180);
+    window.setTimeout(() => floatText("player", t("被弾で石化"), "petri"), 1180);
   }
   if (action.blockPenalty) {
-    window.setTimeout(() => floatText("player", `次防御-${action.blockPenalty}`, "curse"), 1180);
+    window.setTimeout(() => floatText("player", t("次防御-{amount}", { amount: action.blockPenalty }), "curse"), 1180);
   }
 }
 
@@ -4371,40 +4493,40 @@ function shakeEnemy() {
 
 function intentText(action) {
   if (!action) return "";
-  const bits = [action.label];
-  if (action.attack) bits.push(`${action.attack}攻撃`);
-  if (action.petri) bits.push(`石化${action.petri}`);
-  if (action.block) bits.push(`防御${action.block}`);
-  if (action.addCard || action.addDiscardCard || action.brands || action.mutateCard) bits.push("妨害");
-  if (action.energyLoss) bits.push(`次エナジー-${action.energyLoss}`);
-  if (action.drawPenalty) bits.push(`次ドロー-${action.drawPenalty}`);
-  if (action.brittle) bits.push("被弾石化");
-  if (action.dex) bits.push(`敏捷+${action.dex}`);
-  if (action.selfStunOnFullBlock) bits.push("受け切るとスタン");
-  if (action.stunned) bits.push("スタン");
-  return `予定: ${bits.join(" / ")}`;
+  const bits = [localizeLabel(action)];
+  if (action.attack) bits.push(`${action.attack}${t("攻撃")}`);
+  if (action.petri) bits.push(`${t("石化")}${action.petri}`);
+  if (action.block) bits.push(`${t("防御")}${action.block}`);
+  if (action.addCard || action.addDiscardCard || action.brands || action.mutateCard) bits.push(t("妨害"));
+  if (action.energyLoss) bits.push(`${t("次エナジー")}-${action.energyLoss}`);
+  if (action.drawPenalty) bits.push(`${t("次ドロー")}-${action.drawPenalty}`);
+  if (action.brittle) bits.push(t("被弾石化"));
+  if (action.dex) bits.push(`${t("敏捷")}+${action.dex}`);
+  if (action.selfStunOnFullBlock) bits.push(t("受け切るとスタン"));
+  if (action.stunned) bits.push(t("スタン"));
+  return `${t("予定")}: ${bits.join(" / ")}`;
 }
 
 function intentMarkup(action) {
-  if (!action) return "戦闘外";
+  if (!action) return t("戦闘外");
   const extras = [];
-  if (action.block) extras.push(`防御${action.block}`);
-  if (action.str) extras.push(`筋力+${action.str}`);
-  if (action.dex) extras.push(`敏捷+${action.dex}`);
-  if (action.addCard || action.addDiscardCard || action.brands || action.mutateCard) extras.push("妨害");
-  if (action.energyLoss) extras.push(`次エナジー-${action.energyLoss}`);
-  if (action.drawPenalty) extras.push(`次ドロー-${action.drawPenalty}`);
-  if (action.blockPenalty) extras.push(`次防御-${action.blockPenalty}`);
-  if (action.brittle) extras.push("被弾石化");
-  if (action.selfStunOnFullBlock) extras.push("完全防御でスタン");
-  if (action.stunned) extras.push("スタン");
+  if (action.block) extras.push(`${t("ブロック")}${action.block}`);
+  if (action.str) extras.push(`${t("筋力")}+${action.str}`);
+  if (action.dex) extras.push(`${t("敏捷")}+${action.dex}`);
+  if (action.addCard || action.addDiscardCard || action.brands || action.mutateCard) extras.push(t("妨害"));
+  if (action.energyLoss) extras.push(`${t("次エナジー")}-${action.energyLoss}`);
+  if (action.drawPenalty) extras.push(`${t("次ドロー")}-${action.drawPenalty}`);
+  if (action.blockPenalty) extras.push(`${t("次防御")}-${action.blockPenalty}`);
+  if (action.brittle) extras.push(t("被弾石化"));
+  if (action.selfStunOnFullBlock) extras.push(t("完全防御でスタン"));
+  if (action.stunned) extras.push(t("スタン"));
   return `
-    <span class="intent-label">予定: ${action.label}</span>
+    <span class="intent-label">${t("予定")}: ${localizeLabel(action)}</span>
     <span class="intent-icons">
-      ${action.attack ? `<span class="intent-chip attack"><img src="${statusIcons.attack}" alt="攻撃"><b>${action.attack}</b></span>` : ""}
-      ${action.petri ? `<span class="intent-chip petri"><img src="${statusIcons.petrify}" alt="石化"><b>${action.petri}</b></span>` : ""}
-      ${action.selfStunOnFullBlock ? `<span class="intent-chip stun"><img src="${statusIcons.stun}" alt="完全防御でスタン"><b>!</b></span>` : ""}
-      ${action.stunned ? `<span class="intent-chip stun"><img src="${statusIcons.stun}" alt="スタン"><b>1</b></span>` : ""}
+      ${action.attack ? `<span class="intent-chip attack"><img src="${statusIcons.attack}" alt="${t("攻撃")}"><b>${action.attack}</b></span>` : ""}
+      ${action.petri ? `<span class="intent-chip petri"><img src="${statusIcons.petrify}" alt="${t("石化")}"><b>${action.petri}</b></span>` : ""}
+      ${action.selfStunOnFullBlock ? `<span class="intent-chip stun"><img src="${statusIcons.stun}" alt="${t("完全防御でスタン")}"><b>!</b></span>` : ""}
+      ${action.stunned ? `<span class="intent-chip stun"><img src="${statusIcons.stun}" alt="${t("スタン")}"><b>1</b></span>` : ""}
     </span>
     ${extras.length ? `<span class="intent-extra">${extras.join(" / ")}</span>` : ""}
   `;
@@ -4412,22 +4534,22 @@ function intentMarkup(action) {
 
 function intentDescription(action) {
   if (!action) return "";
-  const lines = [`${action.label}:`];
-  if (action.attack) lines.push(`プレイヤーに${action.attack}ダメージを与えます。ブロックで軽減できます。プレートはターン終了時、敵の行動前にブロックへ変換されます。`);
-  if (action.petri) lines.push(`石化を${action.petri}進行させます。`);
-  if (action.block) lines.push(`敵が${action.block}ブロックを得ます。`);
-  if (action.str) lines.push(`敵の筋力が${action.str}増えます。以後の攻撃ダメージが増加します。`);
-  if (action.dex) lines.push(`敵の敏捷が${action.dex}増えます。以後のブロック量が増加します。`);
-  if (action.mutateCard) lines.push(`次のターン開始時、手札のカードをランダムに${action.mutateCard}枚「石化したカード」に変化させ、消費コストを1増やします。この変化は戦闘終了時に解除されます。`);
-  if (action.addCard) lines.push(`次のターン開始時、手札に邪魔な石化カードを${action.addCardCount || 1}枚追加します。`);
-  if (action.addDiscardCard) lines.push(`捨て札に邪魔な石化カードを${action.addDiscardCardCount || 1}枚追加します。`);
-  if (action.energyLoss) lines.push(`次のターン開始時、エナジーが${action.energyLoss}減ります。`);
-  if (action.drawPenalty) lines.push(`次のターン開始時、引くカードが${action.drawPenalty}枚減ります。`);
-  if (action.blockPenalty) lines.push(`次にブロックを得る時、その値が${action.blockPenalty}減ります。`);
-  if (action.brands) lines.push(`次のターン開始時、「石化の刻印」を${action.brands}枚追加します。コスト1で廃棄できますが、手札に残るとターン終了時に石化が進みます。`);
-  if (action.brittle) lines.push(`${action.brittle}ターンの間、ブロックしきれなかったダメージと同じ値だけ石化が進みます。`);
-  if (action.selfStunOnFullBlock) lines.push("この攻撃をすべてブロックすると、敵は次のターンにスタンして行動できません。");
-  if (action.stunned) lines.push("敵は体勢を崩しており、このターン行動しません。");
+  const lines = [`${localizeLabel(action)}:`];
+  if (action.attack) lines.push(t("プレイヤーに{amount}ダメージを与えます。ブロックで軽減できます。プレートはターン終了時、敵の行動前にブロックへ変換されます。", { amount: action.attack }));
+  if (action.petri) lines.push(t("石化を{amount}進行させます。", { amount: action.petri }));
+  if (action.block) lines.push(t("敵が{amount}ブロックを得ます。", { amount: action.block }));
+  if (action.str) lines.push(t("敵の筋力が{amount}増えます。以後の攻撃ダメージが増加します。", { amount: action.str }));
+  if (action.dex) lines.push(t("敵の敏捷が{amount}増えます。以後のブロック量が増加します。", { amount: action.dex }));
+  if (action.mutateCard) lines.push(t("次のターン開始時、手札のカードをランダムに{count}枚「石化したカード」に変化させ、消費コストを1増やします。この変化は戦闘終了時に解除されます。", { count: action.mutateCard }));
+  if (action.addCard) lines.push(t("次のターン開始時、手札に邪魔な石化カードを{count}枚追加します。", { count: action.addCardCount || 1 }));
+  if (action.addDiscardCard) lines.push(t("捨て札に邪魔な石化カードを{count}枚追加します。", { count: action.addDiscardCardCount || 1 }));
+  if (action.energyLoss) lines.push(t("次のターン開始時、エナジーが{amount}減ります。", { amount: action.energyLoss }));
+  if (action.drawPenalty) lines.push(t("次のターン開始時、引くカードが{count}枚減ります。", { count: action.drawPenalty }));
+  if (action.blockPenalty) lines.push(t("次にブロックを得る時、その値が{amount}減ります。", { amount: action.blockPenalty }));
+  if (action.brands) lines.push(t("次のターン開始時、「石化の刻印」を{count}枚追加します。コスト1で廃棄できますが、手札に残るとターン終了時に石化が進みます。", { count: action.brands }));
+  if (action.brittle) lines.push(t("{turns}ターンの間、ブロックしきれなかったダメージと同じ値だけ石化が進みます。", { turns: action.brittle }));
+  if (action.selfStunOnFullBlock) lines.push(t("この攻撃をすべてブロックすると、敵は次のターンにスタンして行動できません。"));
+  if (action.stunned) lines.push(t("敵は体勢を崩しており、このターン行動しません。"));
   return lines.join("\n");
 }
 
@@ -4457,10 +4579,10 @@ function getPlayerDebuffs() {
   if (brittle > 0) {
     debuffs.push({
       id: "brittle",
-      name: "被弾石化",
+      name: t("被弾石化"),
       turns: brittle,
       icon: "assets/debuff_brittle_petrify.png",
-      description: "効果中にブロックしきれなかったダメージを受けるたび、同じ値だけ石化が進みます。敵の行動終了時に残りターンが1減少します。付与された直後の敵行動では減少しません。"
+      description: t("効果中にブロックしきれなかったダメージを受けるたび、同じ値だけ石化が進みます。敵の行動終了時に残りターンが1減少します。付与された直後の敵行動では減少しません。")
     });
   }
   for (const threshold of thresholds) {
@@ -4468,10 +4590,10 @@ function getPlayerDebuffs() {
     if (state.player.petri < threshold.value) continue;
     debuffs.push({
       id: `petri-${threshold.key}`,
-      name: threshold.name,
+      name: localizeName(threshold),
       turns: "",
       icon: threshold.icon,
-      description: threshold.description
+      description: t(threshold.description)
     });
   }
   return debuffs;
@@ -4486,8 +4608,8 @@ function renderPlayerDebuffs() {
     const item = document.createElement("div");
     item.className = "debuff-icon";
     item.tabIndex = 0;
-    item.title = `${debuff.name}\n${debuff.description}`;
-    item.dataset.tooltip = `${debuff.name}: ${debuff.description}`;
+    item.title = `${t(debuff.name)}\n${t(debuff.description)}`;
+    item.dataset.tooltip = `${t(debuff.name)}: ${t(debuff.description)}`;
     item.innerHTML = `<img src="${debuff.icon}" alt="">${debuff.turns ? `<b>${debuff.turns}</b>` : ""}`;
     node.appendChild(item);
   }
@@ -4497,8 +4619,8 @@ function statusIconNode(status) {
   const item = document.createElement("div");
   item.className = `status-icon ${status.kind || "buff"}${status.value < 0 || status.kind === "debuff" ? " negative" : ""}`;
   item.tabIndex = 0;
-  item.title = `${status.name}\n${status.description}`;
-  item.dataset.tooltip = `${status.name}: ${status.description}`;
+  item.title = `${t(status.name)}\n${t(status.description)}`;
+  item.dataset.tooltip = `${t(status.name)}: ${t(status.description)}`;
   item.innerHTML = `<img src="${status.icon}" alt=""><b>${status.value}</b>`;
   return item;
 }
@@ -4508,67 +4630,67 @@ function actorBuffs(actor) {
   const buffs = [];
   if (actor.str) {
     buffs.push({
-      name: "筋力",
+      name: t("筋力"),
       value: actor.str,
       icon: statusIcons.str,
-      description: `攻撃カードと攻撃行動のダメージが${actor.str >= 0 ? "+" : ""}${actor.str}されます。`
+      description: t("攻撃カードと攻撃行動のダメージが{amount}されます。", { amount: `${actor.str >= 0 ? "+" : ""}${actor.str}` })
     });
   }
   if (actor.dex) {
     buffs.push({
-      name: "敏捷",
+      name: t("敏捷"),
       value: actor.dex,
       icon: statusIcons.dex,
-      description: `ブロックを得る効果が${actor.dex >= 0 ? "+" : ""}${actor.dex}されます。`
+      description: t("ブロックを得る効果が{amount}されます。", { amount: `${actor.dex >= 0 ? "+" : ""}${actor.dex}` })
     });
   }
   if (actor.plate > 0) {
     buffs.push({
-      name: "プレート",
+      name: t("プレート"),
       value: actor.plate,
       icon: statusIcons.plate,
-      description: `ターン終了時、敵の行動前に${actor.plate}ブロックを得ます。その後プレートは1減ります。`
+      description: t("ターン終了時、敵の行動前に{amount}ブロックを得ます。その後プレートは1減ります。", { amount: actor.plate })
     });
   }
   if (actor.crackRiposte > 0) {
     buffs.push({
-      name: "亀裂の返し",
+      name: t("亀裂の返し"),
       value: actor.crackRiposte,
       icon: "assets/cards/card_crack_riposte.png",
-      description: `石化値が蓄積するたびにHPを${actor.crackRiposte}失い、敵に合計${actor.crackRiposteDamage || 0}ダメージを与えます。`
+      description: t("石化値が蓄積するたびにHPを{hp}失い、敵に合計{damage}ダメージを与えます。", { hp: actor.crackRiposte, damage: actor.crackRiposteDamage || 0 })
     });
   }
   if (actor.stoneSkinReaction > 0) {
     buffs.push({
-      name: "石肌の反応",
+      name: t("石肌の反応"),
       value: actor.stoneSkinReaction,
       icon: "assets/cards/card_statue_reservoir.png",
-      description: `石化値が蓄積するたびに合計${actor.stoneSkinReactionBlock || 0}ブロックを得ます。`
+      description: t("石化値が蓄積するたびに合計{amount}ブロックを得ます。", { amount: actor.stoneSkinReactionBlock || 0 })
     });
   }
   if (actor.echoStoneSigil > 0) {
     buffs.push({
-      name: "残響の石紋",
+      name: t("残響の石紋"),
       value: actor.echoStoneSigil,
       icon: statusIcons.echo,
-      description: "石化のしきい値を超えた時、山札のランダムなカードをコスト0・エセリアルで手札にコピーします。"
+      description: t("石化のしきい値を超えた時、山札のランダムなカードをコスト0・エセリアルで手札にコピーします。")
     });
   }
   if (actor.exhaustBreath > 0) {
     buffs.push({
-      name: "残骸の呼吸",
+      name: t("残骸の呼吸"),
       value: actor.exhaustBreath,
       icon: "assets/cards/card_wreckage_breath.png",
-      description: `カードを廃棄するたびに石化を合計${actor.exhaustBreathAmount || 0}軽減します。`
+      description: t("カードを廃棄するたびに石化を合計{amount}軽減します。", { amount: actor.exhaustBreathAmount || 0 })
     });
   }
   if (actor.stunned > 0) {
     buffs.push({
-      name: "体勢崩れ",
+      name: t("体勢崩れ"),
       value: actor.stunned,
       kind: "debuff",
       icon: statusIcons.stun,
-      description: "次の行動がスタンになり、行動できません。"
+      description: t("次の行動がスタンになり、行動できません。")
     });
   }
   return buffs;
@@ -4593,8 +4715,8 @@ function renderBlockBadge(nodeId, healthbarId, value) {
     badge.innerHTML = "";
     return;
   }
-  badge.title = `ブロック\n次に受けるダメージを${value}軽減します。`;
-  badge.dataset.tooltip = `ブロック: 次に受けるダメージを${value}軽減します。`;
+  badge.title = `${t("ブロック")}\n${t("次に受けるダメージを{value}軽減します。", { value })}`;
+  badge.dataset.tooltip = `${t("ブロック")}: ${t("次に受けるダメージを{value}軽減します。", { value })}`;
   badge.innerHTML = `<img src="${statusIcons.block}" alt=""><b>${value}</b>`;
 }
 
@@ -4604,7 +4726,8 @@ function render() {
   const petriRatio = state.player.petri / 100;
   document.documentElement.style.setProperty("--stone-opacity", petriRatio);
   applyHeroFrame();
-  qs("floorText").textContent = `深層 ${state.floor}`;
+  localizeStaticDom();
+  qs("floorText").textContent = t("深層 {floor}", { floor: state.floor });
   qs("hpText").textContent = `${state.player.hp}/${state.player.maxHp}`;
   qs("deckText").textContent = state.deck.length;
   qs("relicText").textContent = state.relics.length;
@@ -4616,19 +4739,19 @@ function render() {
   qs("debugCardBtn").classList.toggle("hidden", !debugMapSelect);
   qs("energyText").textContent = `${state.energy}/${state.maxEnergy}`;
   qs("playerPetri").innerHTML = `
-    <span><span class="petri-title"><img src="${statusIcons.petrify}" alt="">石化</span><b>${state.player.petri}/100</b></span>
+    <span><span class="petri-title"><img src="${statusIcons.petrify}" alt="">${t("石化")}</span><b>${state.player.petri}/100</b></span>
     <div class="petri-bar" style="--petri-width:${state.player.petri}%"><i></i></div>
   `;
-  const drawBonusText = state.drawBonus > 0 ? ` / ドロー+${state.drawBonus}` : "";
+  const drawBonusText = state.drawBonus > 0 ? ` / ${t("ドロー")}+${state.drawBonus}` : "";
   qs("statusLine").textContent = state.petrified
-    ? "完全に石化している。カードもターンも、もう身体には届かない。"
+    ? t("完全に石化している。カードもターンも、もう身体には届かない。")
     : state.runOver
-      ? "ゲームオーバー。再挑戦するなら最初からを押してください。"
-      : `ターン ${state.turn}${drawBonusText}`;
+      ? t("ゲームオーバー。再挑戦するなら最初からを押してください。")
+      : `${t("ターン {turn}", { turn: state.turn })}${drawBonusText}`;
   renderActorBuffs("playerBuffs", state.player);
   renderActorBuffs("enemyBuffs", state.enemy);
   renderPlayerDebuffs();
-  qs("enemyIntent").innerHTML = state.petrified || state.runOver || !state.enemy ? "戦闘外" : intentMarkup(state.enemy.intent);
+  qs("enemyIntent").innerHTML = state.petrified || state.runOver || !state.enemy ? t("戦闘外") : intentMarkup(state.enemy.intent);
   qs("enemyIntent").title = state.petrified || state.runOver || !state.enemy ? "" : intentDescription(state.enemy.intent);
   qs("enemyIntent").tabIndex = state.petrified || state.runOver || !state.enemy ? -1 : 0;
   qs("enemyIntent").setAttribute("role", "button");
@@ -4685,7 +4808,7 @@ function render() {
     card.fx = "";
   }
   renderHandEvents();
-  qs("log").innerHTML = state.logs.slice(-5).map((line) => `<div>${line}</div>`).join("");
+  qs("log").innerHTML = state.logs.slice(-5).map((line) => `<div>${escapeHtml(line)}</div>`).join("");
   qs("endTurnBtn").disabled = state.petrified || state.runOver || state.turnResolving || state.cardResolving;
 }
 
@@ -4694,24 +4817,24 @@ function renderHandEvents() {
   const events = state.handEvents.splice(0);
   const toast = document.createElement("div");
   toast.className = `hand-change-toast ${events.some((event) => event.type === "mutated") ? "mutated" : "added"}`;
-  toast.innerHTML = events.slice(-3).map((event) => `<span>${event.text}</span>`).join("");
+  toast.innerHTML = events.slice(-3).map((event) => `<span>${escapeHtml(event.text)}</span>`).join("");
   qs("hand").appendChild(toast);
 }
 
-function addLog(line) {
-  state.logs.push(line);
+function addLog(line, vars) {
+  state.logs.push(t(line, vars));
 }
 
 function addStepLog(title, detail = "") {
-  addLog(`【${title}】${detail}`);
+  addLog("【{title}】{detail}", { title: t(title), detail: t(detail) });
 }
 
 function queuePlayerTurnStep(delayMs = 120, shouldLog = true) {
   window.clearTimeout(queuePlayerTurnStep.timer);
   queuePlayerTurnStep.timer = debugTimeout(() => {
     if (state.runOver || state.petrified || state.turnResolving || !state.enemy) return;
-    showTurnStep("プレイヤーのターン", `ターン ${state.turn}`, "good", 2400);
-    if (shouldLog) addStepLog("プレイヤーのターン", `ターン ${state.turn}`);
+    showTurnStep("プレイヤーのターン", t("ターン {turn}", { turn: state.turn }), "good", 2400);
+    if (shouldLog) addStepLog("プレイヤーのターン", t("ターン {turn}", { turn: state.turn }));
   }, delayMs);
 }
 
@@ -4721,7 +4844,7 @@ function showTurnStep(title, detail = "", type = "neutral", duration = 1900) {
   node.className = `turn-step-banner ${type}`;
   node.classList.toggle("compact", !detail);
   node.style.setProperty("--turn-step-duration", `${duration}ms`);
-  node.innerHTML = `<strong>${title}</strong>${detail ? `<span>${detail}</span>` : ""}`;
+  node.innerHTML = `<strong>${escapeHtml(t(title))}</strong>${detail ? `<span>${escapeHtml(t(detail))}</span>` : ""}`;
   node.style.animation = "none";
   void node.offsetWidth;
   node.style.animation = "";
@@ -4901,14 +5024,14 @@ function installDebugApi() {
 }
 
 qs("endTurnBtn").addEventListener("click", endTurn);
-qs("restartBtn").addEventListener("click", newGame);
+qs("restartBtn").addEventListener("click", requestNewGame);
 qs("noticeNextBtn").addEventListener("click", showNextNotice);
 qs("deckBtn").addEventListener("click", () => showPile("deck"));
 qs("drawPileBtn").addEventListener("click", () => showPile("draw"));
 qs("discardPileBtn").addEventListener("click", () => showPile("discard"));
 qs("sceneDeckBtn").addEventListener("click", () => showPile("deck"));
 qs("debugCardBtn").addEventListener("click", showDebugCardLibrary);
-qs("sceneRestartBtn").addEventListener("click", newGame);
+qs("sceneRestartBtn").addEventListener("click", requestNewGame);
 qs("pileCloseBtn").addEventListener("click", () => qs("pileModal").classList.add("hidden"));
 qs("enemyIntent").addEventListener("click", () => {
   if (state.petrified || state.runOver || !state.enemy) return;
@@ -4934,6 +5057,8 @@ document.addEventListener("visibilitychange", () => {
 
 installDebugApi();
 async function bootGame() {
+  setupLanguageSelect();
+  localizeStaticDom();
   await preloadCriticalImages();
   requestAnimationFrame(tickHeroAnimation);
   newGame();

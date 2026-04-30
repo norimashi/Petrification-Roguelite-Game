@@ -34,17 +34,21 @@
   <main id="app" class="game-shell">
     <section class="topbar">
       <div class="title">
-        <strong>石像の剣士</strong>
+        <strong data-i18n="石像の剣士">石像の剣士</strong>
         <span id="floorText">深層 1</span>
       </div>
       <div class="meters">
-        <div class="meter hp"><span>HP</span><b id="hpText"></b></div>
-        <button id="deckBtn" class="meter pile-btn" type="button"><span>所持</span><b id="deckText">0</b></button>
-        <div class="meter relic-meter"><span>レリック</span><b id="relicText">0</b></div>
-        <button id="drawPileBtn" class="meter pile-btn" type="button"><span>山札</span><b id="drawPileText">0</b></button>
-        <button id="discardPileBtn" class="meter pile-btn" type="button"><span>捨札</span><b id="discardPileText">0</b></button>
+        <div class="meter hp"><span data-i18n="HP">HP</span><b id="hpText"></b></div>
+        <button id="deckBtn" class="meter pile-btn" type="button"><span data-i18n="所持">所持</span><b id="deckText">0</b></button>
+        <div class="meter relic-meter"><span data-i18n="レリック">レリック</span><b id="relicText">0</b></div>
+        <button id="drawPileBtn" class="meter pile-btn" type="button"><span data-i18n="山札">山札</span><b id="drawPileText">0</b></button>
+        <button id="discardPileBtn" class="meter pile-btn" type="button"><span data-i18n="捨札">捨札</span><b id="discardPileText">0</b></button>
       </div>
-      <button id="restartBtn" class="icon-btn" title="最初から">↻</button>
+      <label class="language-picker">
+        <span data-i18n="言語">言語</span>
+        <select class="language-select" data-language-select aria-label="Language"></select>
+      </label>
+      <button id="restartBtn" class="icon-btn" title="最初から" data-i18n-title="最初から">↻</button>
     </section>
 
     <section class="battlefield">
@@ -84,20 +88,24 @@
     <section class="control-row">
       <div class="energy" id="energyText"></div>
       <div class="status-line" id="statusLine"></div>
-      <button id="endTurnBtn" class="end-turn">ターン終了</button>
+      <button id="endTurnBtn" class="end-turn" data-i18n="ターン終了">ターン終了</button>
     </section>
 
-    <section id="hand" class="hand" aria-label="手札"></section>
+    <section id="hand" class="hand" aria-label="手札" data-i18n-aria-label="手札"></section>
 
     <section id="rewardModal" class="overlay hidden">
       <div class="modal">
         <h2 id="modalTitle">カード報酬</h2>
         <div class="scene-hud">
-          <div class="scene-meter hp"><span>HP</span><b id="sceneHpText">0/0</b></div>
-          <div class="scene-meter petri"><span>石化</span><b id="scenePetriText">0/100</b></div>
-          <button id="sceneDeckBtn" class="scene-tool" type="button">所持カード <b id="sceneDeckText">0</b></button>
-          <button id="debugCardBtn" class="scene-tool debug-tool hidden" type="button">カード追加</button>
-          <button id="sceneRestartBtn" class="scene-tool icon" type="button" title="最初から">↻</button>
+          <div class="scene-meter hp"><span data-i18n="HP">HP</span><b id="sceneHpText">0/0</b></div>
+          <div class="scene-meter petri"><span data-i18n="石化">石化</span><b id="scenePetriText">0/100</b></div>
+          <button id="sceneDeckBtn" class="scene-tool" type="button"><span data-i18n="所持カード">所持カード</span> <b id="sceneDeckText">0</b></button>
+          <button id="debugCardBtn" class="scene-tool debug-tool hidden" type="button" data-i18n="カード追加">カード追加</button>
+          <label class="language-picker scene-language-picker">
+            <span data-i18n="言語">言語</span>
+            <select class="language-select" data-language-select aria-label="Language"></select>
+          </label>
+          <button id="sceneRestartBtn" class="scene-tool icon" type="button" title="最初から" data-i18n-title="最初から">↻</button>
         </div>
         <div id="rewardCards" class="reward-cards"></div>
         <div class="modal-actions"></div>
@@ -110,7 +118,7 @@
         <img id="noticeStill" class="notice-still hidden" alt="">
         <div id="noticeText" class="notice-text"></div>
         <div class="modal-actions">
-          <button id="noticeNextBtn">確認</button>
+          <button id="noticeNextBtn" data-i18n="確認">確認</button>
         </div>
       </div>
     </section>
@@ -120,11 +128,12 @@
         <h2 id="pileTitle">山札</h2>
         <div id="pileCards" class="pile-cards"></div>
         <div class="modal-actions">
-          <button id="pileCloseBtn">閉じる</button>
+          <button id="pileCloseBtn" data-i18n="閉じる">閉じる</button>
         </div>
       </div>
     </section>
   </main>
+  <script src="locales.js"></script>
   <script src="game.js"></script>
 </body>
 </html>

@@ -105,6 +105,27 @@ button:disabled {
 .meter.petri b { color: #cdd3d2; }
 .meter.deck b { color: #9fd5df; }
 
+.language-picker {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 900;
+}
+
+.language-picker select {
+  min-width: 108px;
+  border: 1px solid var(--edge);
+  border-radius: 8px;
+  padding: 7px 28px 7px 10px;
+  color: var(--ink);
+  background: #202930;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 900;
+}
+
 .icon-btn {
   width: 42px;
   height: 42px;
@@ -1594,7 +1615,8 @@ body:has(#rewardModal:not(.hidden)) .hand .card {
 }
 
 .scene-meter,
-.scene-tool {
+.scene-tool,
+.scene-language-picker {
   min-height: 38px;
   display: inline-flex;
   align-items: center;
@@ -1609,12 +1631,23 @@ body:has(#rewardModal:not(.hidden)) .hand .card {
 }
 
 .scene-meter span,
-.scene-tool {
+.scene-tool,
+.scene-language-picker {
   font-size: 13px;
 }
 
-.scene-meter span {
+.scene-meter span,
+.scene-language-picker span {
   color: var(--muted);
+}
+
+.scene-language-picker {
+  margin: 0;
+}
+
+.scene-language-picker select {
+  min-width: 104px;
+  padding-block: 5px;
 }
 
 .scene-meter.hp b { color: #ff8174; }
