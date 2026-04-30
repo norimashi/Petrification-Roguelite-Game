@@ -1,0 +1,106 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>石像の剣士</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <main id="app" class="game-shell">
+    <section class="topbar">
+      <div class="title">
+        <strong>石像の剣士</strong>
+        <span id="floorText">深層 1</span>
+      </div>
+      <div class="meters">
+        <div class="meter hp"><span>HP</span><b id="hpText"></b></div>
+        <button id="deckBtn" class="meter pile-btn" type="button"><span>所持</span><b id="deckText">0</b></button>
+        <div class="meter relic-meter"><span>レリック</span><b id="relicText">0</b></div>
+        <button id="drawPileBtn" class="meter pile-btn" type="button"><span>山札</span><b id="drawPileText">0</b></button>
+        <button id="discardPileBtn" class="meter pile-btn" type="button"><span>捨札</span><b id="discardPileText">0</b></button>
+      </div>
+      <button id="restartBtn" class="icon-btn" title="最初から">↻</button>
+    </section>
+
+    <section class="battlefield">
+      <img class="battle-bg" src="assets/battle_bg.png" alt="">
+      <div id="thresholdBanner" class="threshold-banner hidden"></div>
+      <div id="turnStepBanner" class="turn-step-banner hidden"></div>
+      <div class="actor player" id="playerActor">
+        <div id="playerPetri" class="petri-badge"></div>
+        <div class="actor-status-row player-status-row">
+          <div id="playerBuffs" class="buffs status-icons" aria-label="player buffs"></div>
+          <div id="playerDebuffs" class="debuffs" aria-label="player debuffs"></div>
+        </div>
+        <div class="sprite-frame">
+          <div id="heroHuman" class="hero-sprite" aria-hidden="true"></div>
+          <div id="heroStone" class="hero-sprite" aria-hidden="true"></div>
+          <div id="heroSlash" class="hero-slash" aria-hidden="true"></div>
+        </div>
+        <div class="hp-row">
+          <div class="healthbar" id="playerHealthbar"><i id="playerHpBar"></i></div>
+          <div id="playerBlockBadge" class="block-badge hidden"></div>
+        </div>
+        <div id="playerHpText" class="player-hp"></div>
+      </div>
+      <div class="actor enemy" id="enemyActor">
+        <div id="enemyIntent" class="intent"></div>
+        <div id="enemyBuffs" class="buffs status-icons" aria-label="enemy statuses"></div>
+        <img id="enemySprite" src="assets/enemy_petrifier_cutout.png" alt="">
+        <div class="hp-row">
+          <div class="healthbar" id="enemyHealthbar"><i id="enemyHpBar"></i></div>
+          <div id="enemyBlockBadge" class="block-badge hidden"></div>
+        </div>
+        <div id="enemyHpText" class="enemy-hp"></div>
+      </div>
+      <aside class="combat-log" id="log"></aside>
+    </section>
+
+    <section class="control-row">
+      <div class="energy" id="energyText"></div>
+      <div class="status-line" id="statusLine"></div>
+      <button id="endTurnBtn" class="end-turn">ターン終了</button>
+    </section>
+
+    <section id="hand" class="hand" aria-label="手札"></section>
+
+    <section id="rewardModal" class="overlay hidden">
+      <div class="modal">
+        <h2 id="modalTitle">カード報酬</h2>
+        <div class="scene-hud">
+          <div class="scene-meter hp"><span>HP</span><b id="sceneHpText">0/0</b></div>
+          <div class="scene-meter petri"><span>石化</span><b id="scenePetriText">0/100</b></div>
+          <button id="sceneDeckBtn" class="scene-tool" type="button">所持カード <b id="sceneDeckText">0</b></button>
+          <button id="debugCardBtn" class="scene-tool debug-tool hidden" type="button">カード追加</button>
+          <button id="sceneRestartBtn" class="scene-tool icon" type="button" title="最初から">↻</button>
+        </div>
+        <div id="rewardCards" class="reward-cards"></div>
+        <div class="modal-actions"></div>
+      </div>
+    </section>
+
+    <section id="noticeModal" class="overlay notice-overlay hidden">
+      <div class="modal notice-modal">
+        <h2 id="noticeTitle">石化進行</h2>
+        <img id="noticeStill" class="notice-still hidden" alt="">
+        <div id="noticeText" class="notice-text"></div>
+        <div class="modal-actions">
+          <button id="noticeNextBtn">確認</button>
+        </div>
+      </div>
+    </section>
+
+    <section id="pileModal" class="overlay hidden">
+      <div class="modal pile-modal">
+        <h2 id="pileTitle">山札</h2>
+        <div id="pileCards" class="pile-cards"></div>
+        <div class="modal-actions">
+          <button id="pileCloseBtn">閉じる</button>
+        </div>
+      </div>
+    </section>
+  </main>
+  <script src="game.js"></script>
+</body>
+</html>
