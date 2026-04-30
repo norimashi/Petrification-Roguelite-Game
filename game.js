@@ -151,13 +151,66 @@ function heroAnimationAssets(name) {
   return assets;
 }
 
-function preloadCriticalImages() {
-  const sources = new Set([
+function allHeroAnimationAssets() {
+  return Object.keys(heroAnimations).flatMap(heroAnimationAssets);
+}
+
+function collectGameImageSources() {
+  return [
     "assets/battle_bg.png",
-    ...Object.keys(heroAnimations).flatMap(heroAnimationAssets),
+    "assets/cards/stone_overlay.png",
+    "assets/gameover_1.png",
+    "assets/gameover_2.png",
+    "assets/rest_camp_still.png",
+    slashEffect.sheet,
+    ...Object.values(statusIcons),
+    ...Object.values(art).flat(),
+    ...allHeroAnimationAssets(),
+    ...thresholds.flatMap((threshold) => [threshold.icon, threshold.still]),
+    ...enemies.map((enemy) => enemy.image),
+    ...mapEvents.map((event) => event.still),
+    openingEvent.still
+  ].filter(Boolean);
+}
+
+function uniqueImageSources(sources) {
+  return [...new Set(sources.filter(Boolean))];
+}
+
+function scheduleBackgroundImagePreload(sources, concurrent = 3) {
+  const queue = uniqueImageSources(sources).filter((src) => !preloadedImages.has(src));
+  let active = 0;
+  const schedule = window.requestIdleCallback
+    ? (callback) => window.requestIdleCallback(callback, { timeout: 1400 })
+    : (callback) => window.setTimeout(callback, 60);
+
+  const pump = () => {
+    while (active < concurrent && queue.length) {
+      active++;
+      preloadImage(queue.shift()).finally(() => {
+        active--;
+        if (queue.length) schedule(pump);
+      });
+    }
+  };
+
+  schedule(pump);
+}
+
+function preloadCriticalImages() {
+  const immediate = uniqueImageSources([
+    "assets/battle_bg.png",
+    openingEvent.still,
+    ...heroAnimationAssets("idle"),
     slashEffect.sheet
   ]);
-  sources.forEach(preloadImage);
+  const critical = uniqueImageSources([
+    ...immediate,
+    ...allHeroAnimationAssets()
+  ]);
+  critical.forEach(preloadImage);
+  scheduleBackgroundImagePreload(collectGameImageSources());
+  return Promise.all(immediate.map(preloadImage));
 }
 
 function waitForHeroAnimationAssets(name) {
@@ -4875,6 +4928,10 @@ document.addEventListener("visibilitychange", () => {
 });
 
 installDebugApi();
-preloadCriticalImages();
-requestAnimationFrame(tickHeroAnimation);
-newGame();
+async function bootGame() {
+  await preloadCriticalImages();
+  requestAnimationFrame(tickHeroAnimation);
+  newGame();
+}
+
+bootGame();
