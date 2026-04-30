@@ -217,6 +217,11 @@ function waitForHeroAnimationAssets(name) {
   return Promise.all(heroAnimationAssets(name).map(preloadImage));
 }
 
+function finishBootLoading() {
+  document.body.classList.remove("boot-loading");
+  qs("bootLoading")?.classList.add("hidden");
+}
+
 const thresholds = [
   {
     value: 32,
@@ -4932,6 +4937,7 @@ async function bootGame() {
   await preloadCriticalImages();
   requestAnimationFrame(tickHeroAnimation);
   newGame();
+  finishBootLoading();
 }
 
 bootGame();

@@ -1554,6 +1554,10 @@ body:has(#rewardModal:not(.hidden)) .hand .card {
 
 .hidden { display: none; }
 
+#bootLoading.hidden {
+  display: none;
+}
+
 .modal {
   width: min(760px, calc(100vw - 32px));
   max-height: calc(100dvh - 32px);

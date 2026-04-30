@@ -4,9 +4,33 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>石像の剣士</title>
+  <style>
+    body.boot-loading {
+      margin: 0;
+      background: #000;
+      overflow: hidden;
+    }
+
+    body.boot-loading #app {
+      visibility: hidden;
+    }
+
+    #bootLoading {
+      position: fixed;
+      inset: 0;
+      z-index: 9999;
+      display: grid;
+      place-items: center;
+      background: #000;
+      color: #f4efe6;
+      font: 800 18px/1.2 system-ui, sans-serif;
+      letter-spacing: 0;
+    }
+  </style>
   <link rel="stylesheet" href="styles.css">
 </head>
-<body>
+<body class="boot-loading">
+  <section id="bootLoading" aria-live="polite">Now Loading</section>
   <main id="app" class="game-shell">
     <section class="topbar">
       <div class="title">
