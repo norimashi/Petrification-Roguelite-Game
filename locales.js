@@ -2356,6 +2356,22 @@ window.StoneGameI18n = (() => {
     "最大HP+11": "最大 HP +11"
   });
 
+  Object.assign(locales.en.strings, {
+    "レリックはありません": "No relics."
+  });
+
+  Object.assign(zhHant, {
+    "レリックはありません": "沒有遺物。"
+  });
+
+  Object.assign(zhHans, {
+    "レリックはありません": "没有遗物。"
+  });
+
+  Object.assign(ko, {
+    "レリックはありません": "유물이 없습니다."
+  });
+
   const aliases = {
     zh: "zh-Hans",
     "zh-cn": "zh-Hans",
