@@ -40,7 +40,7 @@
       <div class="meters">
         <div class="meter hp"><span data-i18n="HP">HP</span><b id="hpText"></b></div>
         <button id="deckBtn" class="meter pile-btn" type="button"><span data-i18n="所持">所持</span><b id="deckText">0</b></button>
-        <div class="meter relic-meter"><span data-i18n="レリック">レリック</span><b id="relicText">0</b></div>
+        <button id="relicBtn" class="meter pile-btn relic-meter" type="button"><span data-i18n="レリック">レリック</span><b id="relicText">0</b></button>
         <button id="drawPileBtn" class="meter pile-btn" type="button"><span data-i18n="山札">山札</span><b id="drawPileText">0</b></button>
         <button id="discardPileBtn" class="meter pile-btn" type="button"><span data-i18n="捨札">捨札</span><b id="discardPileText">0</b></button>
       </div>
@@ -100,6 +100,7 @@
           <div class="scene-meter hp"><span data-i18n="HP">HP</span><b id="sceneHpText">0/0</b></div>
           <div class="scene-meter petri"><span data-i18n="石化">石化</span><b id="scenePetriText">0/100</b></div>
           <button id="sceneDeckBtn" class="scene-tool" type="button"><span data-i18n="所持カード">所持カード</span> <b id="sceneDeckText">0</b></button>
+          <button id="sceneRelicBtn" class="scene-tool" type="button"><span data-i18n="レリック">レリック</span> <b id="sceneRelicText">0</b></button>
           <button id="debugCardBtn" class="scene-tool debug-tool hidden" type="button" data-i18n="カード追加">カード追加</button>
           <label class="language-picker scene-language-picker">
             <span data-i18n="言語">言語</span>

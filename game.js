@@ -4380,6 +4380,21 @@ function showDebugCardLibrary() {
   qs("pileModal").classList.remove("hidden");
 }
 
+function showRelics() {
+  const ownedRelics = state.relics
+    .map((id) => relics.find((relic) => relic.id === id))
+    .filter(Boolean);
+  qs("pileTitle").textContent = `${t("レリック")} ${ownedRelics.length}`;
+  qs("pileCards").className = "pile-cards relic-list";
+  qs("pileCards").innerHTML = "";
+  if (!ownedRelics.length) {
+    qs("pileCards").innerHTML = `<div class="pile-empty">${t("レリックはありません")}</div>`;
+  } else {
+    for (const relic of ownedRelics) qs("pileCards").appendChild(relicNode(relic));
+  }
+  qs("pileModal").classList.remove("hidden");
+}
+
 function showPile(kind) {
   const cards = kind === "draw"
     ? [...state.drawPile].reverse()
@@ -4736,6 +4751,7 @@ function render() {
   qs("sceneHpText").textContent = `${state.player.hp}/${state.player.maxHp}`;
   qs("scenePetriText").innerHTML = `<span class="inline-petri"><img src="${statusIcons.petrify}" alt="">${state.player.petri}/100</span>`;
   qs("sceneDeckText").textContent = state.deck.length;
+  qs("sceneRelicText").textContent = state.relics.length;
   qs("debugCardBtn").classList.toggle("hidden", !debugMapSelect);
   qs("energyText").textContent = `${state.energy}/${state.maxEnergy}`;
   qs("playerPetri").innerHTML = `
@@ -5027,9 +5043,11 @@ qs("endTurnBtn").addEventListener("click", endTurn);
 qs("restartBtn").addEventListener("click", requestNewGame);
 qs("noticeNextBtn").addEventListener("click", showNextNotice);
 qs("deckBtn").addEventListener("click", () => showPile("deck"));
+qs("relicBtn").addEventListener("click", showRelics);
 qs("drawPileBtn").addEventListener("click", () => showPile("draw"));
 qs("discardPileBtn").addEventListener("click", () => showPile("discard"));
 qs("sceneDeckBtn").addEventListener("click", () => showPile("deck"));
+qs("sceneRelicBtn").addEventListener("click", showRelics);
 qs("debugCardBtn").addEventListener("click", showDebugCardLibrary);
 qs("sceneRestartBtn").addEventListener("click", requestNewGame);
 qs("pileCloseBtn").addEventListener("click", () => qs("pileModal").classList.add("hidden"));

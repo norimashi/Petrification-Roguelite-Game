@@ -2591,6 +2591,15 @@ body:has(#rewardModal:not(.hidden)) .hand .card {
   --lift: 0;
 }
 
+.relic-list {
+  grid-template-columns: repeat(auto-fill, minmax(230px, 1fr));
+  align-items: stretch;
+}
+
+.relic-list .relic-card {
+  min-height: 150px;
+}
+
 .debug-card-library {
   grid-template-columns: repeat(auto-fill, minmax(154px, 1fr));
 }
